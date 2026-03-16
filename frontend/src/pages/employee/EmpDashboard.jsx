@@ -2,21 +2,15 @@
 import { useState, useRef, useEffect } from "react";
 import { T, Card, SectionTitle, Badge, Avatar, Btn } from "../../components/employee/EmpUI";
 import {
-  ME, LEAVE_BALANCE, ANNOUNCEMENTS,
-  buildMonthAttendance, getMyStatus, dateStr,
+  buildMonthAttendanceFromAPI, dateStr, MONTH_NAMES, DAY_LABELS,
 } from "../../utils/EmployeeData";
-
-const INITIAL_TASKS = [
-  { id: 1, title: "Submit timesheet for Feb", due: "Mar 5",  done: true,  priority: "high"   },
-  { id: 2, title: "Complete React training",  due: "Mar 12", done: false, priority: "medium" },
-  { id: 3, title: "Update emergency contact", due: "Mar 15", done: false, priority: "low"    },
-  { id: 4, title: "Self-appraisal form",      due: "Mar 28", done: false, priority: "high"   },
-];
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
+import attendanceService from "../../services/attendanceService";
+import holidayService from "../../services/holidayService";
+import announcementService from "../../services/announcementService";
+import leaveService from "../../services/leaveService";
 
 const PRIORITIES  = ["high", "medium", "low"];
-const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DAY_LABELS  = ["Su","Mo","Tu","We","Th","Fr","Sa"];
-const TODAY       = new Date(2026, 2, 5);
 
 // ─────────────────────────────────────────────────────────────────
 // Inline Calendar Picker Component
@@ -202,13 +196,24 @@ function fmtShort(d) { return d ? d.toLocaleDateString("en-IN", { day:"numeric",
 // Main Dashboard
 // ─────────────────────────────────────────────────────────────────
 export default function EmpDashboard({ setPage }) {
-  const today  = new Date(2026, 2, 5);
-  const status = getMyStatus(dateStr(today));
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const today  = new Date();
+  const { employee } = useCurrentEmployee();
+  const [tasks, setTasks] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [leaves, setLeaves] = useState([]);
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm]           = useState({ title: "", dueDate: null, priority: "medium" });
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
+    holidayService.getHolidays().then((d) => setHolidays(Array.isArray(d) ? d : []));
+    announcementService.getAnnouncements().then((d) => setAnnouncements(Array.isArray(d) ? d : []));
+    leaveService.getLeaves().then((d) => setLeaves(Array.isArray(d) ? d : []));
+  }, []);
 
   const openModal  = () => { setForm({ title: "", dueDate: null, priority: "medium" }); setFormError(""); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setFormError(""); };
@@ -226,12 +231,17 @@ export default function EmpDashboard({ setPage }) {
     closeModal();
   };
 
-  const monthData = buildMonthAttendance(2026, 2);
+  const holidaysMap = {};
+  holidays.forEach(h => { holidaysMap[h.date || h.holiday_date || ""] = { name: h.name || h.title, type: h.type || "public" }; });
+  const myAttendance = (employee?.id ? attendance.filter(a => a.employee_id === employee.id) : attendance);
+  const monthData = buildMonthAttendanceFromAPI(today.getFullYear(), today.getMonth(), myAttendance, holidaysMap);
+  const todayRec = monthData.find(d => d.day === today.getDate());
+  const status = todayRec?.type || "absent";
   const workdays  = monthData.filter(d => d.type !== "weekend" && d.type !== "future");
   const present   = workdays.filter(d => d.type === "present").length;
   const late      = workdays.filter(d => d.type === "late").length;
   const absent    = workdays.filter(d => d.type === "absent").length;
-  const attRate   = Math.round(((present + late) / workdays.length) * 100);
+  const attRate   = workdays.length ? Math.round(((present + late) / workdays.length) * 100) : 0;
 
   const statusMap = {
     present: { label: "Checked In",    color: T.success, msg: "You're checked in today. Have a productive day!" },
@@ -255,9 +265,9 @@ export default function EmpDashboard({ setPage }) {
             borderRadius:"50%", background:"rgba(255,255,255,.06)" }}/>
         ))}
         <div style={{ position: "relative" }}>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", marginBottom: 4 }}>Thursday, 5 March 2026</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", marginBottom: 4 }}>{today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, color: "#fff", marginBottom: 6 }}>
-            Good morning, {ME.name.split(" ")[0]}! 👋
+            Good {today.getHours() < 12 ? "morning" : today.getHours() < 17 ? "afternoon" : "evening"}, {(employee?.name || "Employee").split(" ")[0]}! 👋
           </div>
           <div style={{ fontSize: 14, color: "rgba(255,255,255,.8)" }}>{tod.msg}</div>
         </div>
@@ -277,7 +287,7 @@ export default function EmpDashboard({ setPage }) {
         {[
           { label: "Attendance Rate",  value: `${attRate}%`, icon: "📈", color: T.primary,  bg: T.primaryLight, sub: "This month" },
           { label: "Days Present",     value: present,        icon: "✓",  color: T.success,  bg: "#d1fae5",      sub: "March 2026" },
-          { label: "Leaves Remaining", value: LEAVE_BALANCE.reduce((a,l)=>a+(l.total-l.used),0),
+          { label: "Leaves Remaining", value: [12,10,15,4].reduce((a,b)=>a+b,0) - (employee?.id ? leaves.filter(l=>l.employee_id===employee.id&&l.status==="approved").reduce((a,l)=>a+(l.days||0),0) : 0),
                                                               icon: "🗓", color: T.accent,   bg: "#cffafe",      sub: "All types" },
           { label: "Pending Tasks",    value: tasks.filter(t=>!t.done).length,
                                                               icon: "📋", color: T.warning,  bg: "#fef3c7",      sub: "Action needed" },
@@ -300,7 +310,7 @@ export default function EmpDashboard({ setPage }) {
 
         {/* Attendance summary */}
         <Card style={{ padding: 20 }}>
-          <SectionTitle>March 2026 — Attendance</SectionTitle>
+          <SectionTitle>{MONTH_NAMES[today.getMonth()]} {today.getFullYear()} — Attendance</SectionTitle>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             {[
               { label:"Present", val:present, color:T.success },
@@ -329,7 +339,12 @@ export default function EmpDashboard({ setPage }) {
         <Card style={{ padding: 20 }}>
           <SectionTitle>Leave Balance</SectionTitle>
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {LEAVE_BALANCE.map(l => {
+            {[
+              { type: "Casual Leave",  total: 12, used: employee?.id ? leaves.filter(l=>l.employee_id===employee.id&&l.leave_type==="Casual Leave"&&l.status==="approved").reduce((a,l)=>a+(l.days||0),0) : 0, color: "#4f46e5" },
+              { type: "Sick Leave",    total: 10, used: employee?.id ? leaves.filter(l=>l.employee_id===employee.id&&l.leave_type==="Sick Leave"&&l.status==="approved").reduce((a,l)=>a+(l.days||0),0) : 0, color: "#06b6d4" },
+              { type: "Earned Leave", total: 15, used: employee?.id ? leaves.filter(l=>l.employee_id===employee.id&&l.leave_type==="Earned Leave"&&l.status==="approved").reduce((a,l)=>a+(l.days||0),0) : 0, color: "#10b981" },
+              { type: "Comp Off",     total: 4,  used: employee?.id ? leaves.filter(l=>l.employee_id===employee.id&&l.leave_type==="Comp Off"&&l.status==="approved").reduce((a,l)=>a+(l.days||0),0) : 0, color: "#f59e0b" },
+            ].map(l => {
               const pct = Math.round(((l.total - l.used) / l.total) * 100);
               return (
                 <div key={l.type}>
@@ -353,19 +368,23 @@ export default function EmpDashboard({ setPage }) {
         <Card style={{ padding: 20 }}>
           <SectionTitle>Announcements</SectionTitle>
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {ANNOUNCEMENTS.slice(0,3).map(a => (
+            {(announcements.length ? announcements : []).slice(0,3).map(a => {
+              const tag = a.tag || "HR";
+              const color = { HR:"#4f46e5", Holiday:"#10b981", Policy:"#f59e0b", Wellness:"#06b6d4", IT:"#8b5cf6", Event:"#ec4899" }[tag] || "#4f46e5";
+              return (
               <div key={a.id} style={{
                 padding:"10px 14px", borderRadius:10, background:T.surface2,
-                borderLeft:`3px solid ${a.color}`,
+                borderLeft:`3px solid ${color}`,
               }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
                   <span style={{ fontWeight:600, fontSize:13 }}>{a.title}</span>
-                  <Badge label={a.tag} color={a.color} bg={`${a.color}18`}/>
+                  <Badge label={tag} color={color} bg={`${color}18`}/>
                 </div>
-                <div style={{ fontSize:12, color:T.muted, lineHeight:1.5 }}>{a.msg}</div>
-                <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>{a.date}</div>
+                <div style={{ fontSize:12, color:T.muted, lineHeight:1.5 }}>{a.msg||a.message}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>{a.date ? new Date(a.date).toLocaleDateString("en-IN") : ""}</div>
               </div>
-            ))}
+            );})}
+            {!announcements.length && <div style={{ fontSize:13, color:T.muted }}>No announcements</div>}
           </div>
         </Card>
 

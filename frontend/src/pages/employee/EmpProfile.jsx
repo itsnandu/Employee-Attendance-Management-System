@@ -1,7 +1,7 @@
 // src/pages/employee/EmpProfile.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, Card, SectionTitle, Avatar, Btn, Input } from "../../components/employee/EmpUI";
-import { ME } from "../../utils/EmployeeData";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
 
 function InfoRow({ label, value }) {
   return (
@@ -173,12 +173,38 @@ function DeactivateModal({ onClose }) {
   );
 }
 
+function toProfile(emp) {
+  if (!emp) return { name: "", initials: "?", color: "#4f46e5", role: "", dept: "", email: "", phone: "", joined: "", empId: "—", manager: "", location: "", dob: "", blood: "", address: "", emergencyContact: "" };
+  return {
+    name: emp.name || [emp.first_name, emp.last_name].filter(Boolean).join(" ") || "",
+    initials: (emp.name || "?").slice(0, 2).toUpperCase(),
+    color: "#4f46e5",
+    role: emp.role || emp.position || "",
+    dept: emp.department || emp.dept || "",
+    email: emp.email || "",
+    phone: emp.phone || emp.phone_number || "",
+    joined: emp.joined || emp.joining_date || "",
+    empId: emp.id ? `EMP-${String(emp.id).padStart(4, "0")}` : "—",
+    manager: "",
+    location: "",
+    dob: "",
+    blood: "",
+    address: "",
+    emergencyContact: "",
+  };
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function EmpProfile() {
+  const { employee } = useCurrentEmployee();
   const [editing, setEditing] = useState(false);
-  const [profile, setProfile] = useState(ME);
+  const [profile, setProfile] = useState(() => toProfile(employee));
   const [saved, setSaved]     = useState(false);
-  const [modal, setModal]     = useState(null); // "password" | "2fa" | "pdf" | "deactivate"
+  const [modal, setModal]     = useState(null);
+
+  useEffect(() => {
+    if (employee) setProfile(toProfile(employee));
+  }, [employee]);
 
   function save() {
     setEditing(false);

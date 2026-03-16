@@ -1,29 +1,18 @@
-// import React, { useEffect, useState } from 'react'
-import { Calendar, CheckCircle, XCircle, Clock } from 'lucide-react'
-import attendanceService from '../services/attendanceService'
-import { getStatusColor, getInitials } from '../utils/helpers'
-import { checkIn, checkOut, getAttendance } from "../services/attendanceService";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Search, ChevronDown, X } from "lucide-react";
+import attendanceService from "../services/attendanceService";
+import employeeService from "../services/employeeService";
+import { getInitials } from "../utils/helpers";
 
-const EMPLOYEES = [
-  { id: 1, name: "Rahul Sharma",  initials: "RS", dept: "Engineering", color: "#4f46e5" },
-  { id: 2, name: "Priya Verma",   initials: "PV", dept: "Engineering", color: "#06b6d4" },
-  { id: 3, name: "Sneha Patel",   initials: "SP", dept: "Engineering", color: "#8b5cf6" },
-  { id: 4, name: "Arjun Mehta",   initials: "AM", dept: "Engineering", color: "#10b981" },
-  { id: 5, name: "Kavya Nair",    initials: "KN", dept: "Engineering", color: "#f59e0b" },
-  { id: 6, name: "Vikram Singh",  initials: "VS", dept: "Engineering", color: "#ef4444" },
-  { id: 7, name: "Divya Reddy",   initials: "DR", dept: "Design",      color: "#ec4899" },
-  { id: 8, name: "Manish Kumar",  initials: "MK", dept: "Design",      color: "#14b8a6" },
-];
+const COLORS = ["#4f46e5", "#06b6d4", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6"];
 
 // ── Reusable Employee Dropdown + Search ───────────────────────
-function EmployeeDropdown({ value, onChange, label = "All Employees" }) {
+function EmployeeDropdown({ employees = [], value, onChange, label = "All Employees" }) {
   const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef(null);
-  const selected = value ? EMPLOYEES.find(e => e.id === value) : null;
-  const filtered = EMPLOYEES.filter(e =>
+  const selected = value ? employees.find(e => e.id === value) : null;
+  const filtered = employees.filter(e =>
     e.name.toLowerCase().includes(query.toLowerCase()) ||
     e.dept.toLowerCase().includes(query.toLowerCase())
   );
@@ -209,25 +198,33 @@ const MONTH_NAMES = ["January","February","March","April","May","June",
 
 function dateStr(d) { return d.toISOString().slice(0, 10); }
 
-function getStatus(empId, ds) {
-  const seed = (empId * 31 + ds.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 10;
-  return seed < 6 ? "present" : seed < 8 ? "late" : "absent";
-}
-function getCheckIn(status)  { if (status==="absent") return null; return status==="late" ? "09:45" : "08:55"; }
-function getCheckOut(status) { if (status==="absent") return null; return "18:10"; }
 function getHours(cin, cout) {
   if (!cin || !cout) return null;
-  const [h1,m1] = cin.split(":").map(Number);
-  const [h2,m2] = cout.split(":").map(Number);
-  return ((h2*60+m2 - h1*60-m1)/60).toFixed(1) + "h";
+  const p = (s) => s.split(":").slice(0, 3).map(Number);
+  const [h1, m1] = p(String(cin));
+  const [h2, m2] = p(String(cout));
+  return (((h2 || 0) * 60 + (m2 || 0) - (h1 || 0) * 60 - (m1 || 0)) / 60).toFixed(1) + "h";
 }
 
-function buildDayRecords(ds) {
-  return EMPLOYEES.map(e => {
-    const status = getStatus(e.id, ds);
-    const cin = getCheckIn(status);
-    const cout = getCheckOut(status);
-    return { ...e, status, checkIn: cin, checkOut: cout, hours: getHours(cin, cout) };
+function buildDayRecords(employees, attendanceData, ds) {
+  const byEmp = (attendanceData || []).filter((a) => a.date === ds);
+  const lookup = {};
+  byEmp.forEach((a) => { lookup[a.employee_id] = a; });
+  return (employees || []).map((e) => {
+    const att = lookup[e.id];
+    const status = att ? (att.status || "present").toLowerCase() : "absent";
+    const cin = att?.check_in || null;
+    const cout = att?.check_out || null;
+    return {
+      ...e,
+      dept: e.dept || e.department || "",
+      initials: e.initials || getInitials(e.name),
+      color: e.color || COLORS[e.id % COLORS.length],
+      status,
+      checkIn: cin,
+      checkOut: cout,
+      hours: getHours(cin, cout),
+    };
   });
 }
 
@@ -340,11 +337,11 @@ if (typeof document !== "undefined" && !document.getElementById("att-dropdown-an
 }
 
 // ── DAILY VIEW ─────────────────────────────────────────────────
-function DailyView({ date }) {
+function DailyView({ date, employees, attendanceData }) {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const ds = dateStr(date);
-  const records = useMemo(() => buildDayRecords(ds), [ds]);
+  const records = useMemo(() => buildDayRecords(employees, attendanceData, ds), [ds, employees, attendanceData]);
   const present = records.filter(r => r.status === "present").length;
   const absent  = records.filter(r => r.status === "absent").length;
   const late    = records.filter(r => r.status === "late").length;
@@ -443,16 +440,28 @@ function DailyView({ date }) {
   );
 }
 
+function getStatusFromAttendance(attendanceData, empId, ds) {
+  const att = (attendanceData || []).find((a) => a.employee_id === empId && a.date === ds);
+  return att ? (att.status || "present").toLowerCase() : "absent";
+}
+
 // ── WEEKLY VIEW ────────────────────────────────────────────────
-function WeeklyView({ date }) {
+function WeeklyView({ date, employees, attendanceData }) {
   const weekDates = useMemo(() => getWeekDates(date), [date]);
   const today = dateStr(new Date());
   const [search, setSearch] = useState("");
 
-  const data = useMemo(() => EMPLOYEES.map(e => ({
+  const empList = (employees || []).map((e) => ({
     ...e,
-    days: weekDates.map(d => ({ date: d, status: getStatus(e.id, dateStr(d)) })),
-  })), [weekDates]);
+    dept: e.dept || e.department || "",
+    initials: e.initials || getInitials(e.name),
+    color: e.color || COLORS[e.id % COLORS.length],
+  }));
+
+  const data = useMemo(() => empList.map((e) => ({
+    ...e,
+    days: weekDates.map((d) => ({ date: d, status: getStatusFromAttendance(attendanceData, e.id, dateStr(d)) })),
+  })), [weekDates, empList, attendanceData]);
 
   const filteredData = data.filter(e =>
     e.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -590,7 +599,7 @@ function WeeklyView({ date }) {
 }
 
 // ── MONTHLY VIEW ───────────────────────────────────────────────
-function MonthlyView({ date }) {
+function MonthlyView({ date, employees, attendanceData }) {
   const year = date.getFullYear(), month = date.getMonth();
   const today = new Date();
   const firstDay = new Date(year, month, 1);
@@ -602,22 +611,29 @@ function MonthlyView({ date }) {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const [selEmp, setSelEmp] = useState(EMPLOYEES[0].id);
-  const emp = EMPLOYEES.find(e => e.id === selEmp);
+  const empList = (employees || []).map((e) => ({
+    ...e,
+    dept: e.dept || e.department || "",
+    initials: e.initials || getInitials(e.name),
+    color: e.color || COLORS[e.id % COLORS.length],
+  }));
+
+  const [selEmp, setSelEmp] = useState(empList[0]?.id || null);
+  const emp = empList.find((e) => e.id === selEmp);
 
   const stats = useMemo(() => {
     let present = 0, late = 0, absent = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dow = new Date(year, month, d).getDay();
       if (dow === 0 || dow === 6) continue;
-      const ds = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-      const s = getStatus(selEmp, ds);
+      const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const s = getStatusFromAttendance(attendanceData, selEmp, ds);
       if (s === "present") present++;
       else if (s === "late") late++;
       else absent++;
     }
     return { present, late, absent };
-  }, [selEmp, year, month]);
+  }, [selEmp, year, month, daysInMonth, attendanceData]);
 
   function getCellStatus(day) {
     if (!day) return null;
@@ -625,8 +641,8 @@ function MonthlyView({ date }) {
     const dow = d.getDay();
     if (dow === 0 || dow === 6) return "weekend";
     if (d > today) return "future";
-    const ds = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    return getStatus(selEmp, ds);
+    const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return getStatusFromAttendance(attendanceData, selEmp, ds);
   }
 
   const cellBg    = { present: "#d1fae5", late: "#fef3c7", absent: "#fee2e2", weekend: "#f8fafc", future: "#f8fafc" };
@@ -637,8 +653,9 @@ function MonthlyView({ date }) {
       {/* Employee dropdown selector */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <EmployeeDropdown
+          employees={empList}
           value={selEmp}
-          onChange={id => id !== null && setSelEmp(id)}
+          onChange={(id) => id !== null && setSelEmp(id)}
           label="Select Employee"
         />
         {emp && (
@@ -733,7 +750,21 @@ function MonthlyView({ date }) {
 // ── MAIN EXPORT ────────────────────────────────────────────────
 export default function AttendanceContent() {
   const [view, setView] = useState("daily");
-  const [date, setDate] = useState(new Date(2026, 2, 5));
+  const [date, setDate] = useState(new Date());
+  const [employees, setEmployees] = useState([]);
+  const [attendanceData, setAttendanceData] = useState([]);
+
+  useEffect(() => {
+    employeeService.getAll().then((e) => e && setEmployees(Array.isArray(e) ? e : []));
+    attendanceService.getAttendance().then((a) => a && setAttendanceData(Array.isArray(a) ? a : []));
+  }, []);
+
+  const empList = (employees || []).map((e) => ({
+    ...e,
+    dept: e.department || e.dept || "",
+    initials: getInitials(e.name),
+    color: COLORS[e.id % COLORS.length],
+  }));
 
   function prevPeriod() {
     const d = new Date(date);
@@ -791,7 +822,7 @@ export default function AttendanceContent() {
               color: "#0f172a", minWidth: 220, textAlign: "center",
             }}>{periodLabel()}</div>
             <button onClick={nextPeriod} style={{ ...navBtn, width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff" }}>›</button>
-            <button onClick={() => setDate(new Date(2026, 2, 5))} style={{
+            <button onClick={() => setDate(new Date())} style={{
               padding: "6px 14px", borderRadius: 9,
               border: "1.5px solid #4f46e5", background: "#ede9fe",
               color: "#4f46e5", cursor: "pointer", fontSize: 12, fontWeight: 700,
@@ -799,9 +830,9 @@ export default function AttendanceContent() {
           </div>
         </div>
 
-        {view === "daily"   && <DailyView   date={date} />}
-        {view === "weekly"  && <WeeklyView  date={date} />}
-        {view === "monthly" && <MonthlyView date={date} />}
+        {view === "daily"   && <DailyView   date={date} employees={empList} attendanceData={attendanceData} />}
+        {view === "weekly"  && <WeeklyView  date={date} employees={empList} attendanceData={attendanceData} />}
+        {view === "monthly" && <MonthlyView date={date} employees={empList} attendanceData={attendanceData} />}
       </div>
     </div>
   );

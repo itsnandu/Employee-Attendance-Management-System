@@ -15,4 +15,16 @@ export const approveLeave = async (id) => {
   return response.data;
 };
 
-export default leaveService
+export const rejectLeave = async (id) => {
+  const response = await API.put(`/leave/reject/${id}`);
+  return response.data;
+};
+
+const leaveService = {
+  applyLeave,
+  getLeaves,
+  approveLeave,
+  rejectLeave,
+};
+
+export default leaveService;

@@ -29,21 +29,33 @@ export default function Employees() {
   const openEdit = (e) => { setEditing(e); setForm(e); setModal(true) }
 
   const save = async () => {
-    setLoading(true)
-    if (editing) {
-      const updated = await employeeService.update(editing.id, form)
-      setData(d => d.map(e => e.id===editing.id ? { ...e, ...form } : e))
-    } else {
-      const created = await employeeService.create(form)
-      setData(d => [...d, created])
+    setLoading(true);
+    try {
+      if (editing) {
+        const updated = await employeeService.update(editing.id, form);
+        if (updated?.error) throw new Error(updated.error);
+        setData((d) => d.map((e) => (e.id === editing.id ? { ...e, ...updated } : e)));
+      } else {
+        const created = await employeeService.create(form);
+        if (created?.error) throw new Error(created.error);
+        setData((d) => [...(d || []), created]);
+      }
+      setModal(false);
+    } catch (err) {
+      alert(err.message || "Failed to save employee");
+    } finally {
+      setLoading(false);
     }
-    setModal(false); setLoading(false)
-  }
+  };
 
   const destroy = async () => {
-    await employeeService.delete(del.id)
-    setData(d => d.filter(e => e.id !== del.id))
-    setDel(null)
+    try {
+      await employeeService.delete(del.id);
+      setData((d) => d.filter((e) => e.id !== del.id));
+      setDel(null);
+    } catch (err) {
+      alert(err.message || "Failed to delete");
+    }
   }
 
   const handle = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))

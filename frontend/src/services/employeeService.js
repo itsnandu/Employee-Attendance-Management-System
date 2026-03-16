@@ -22,5 +22,17 @@ export const deleteEmployee = async (id) => {
   return response.data;
 };
 
+const getMe = async () => {
+  const response = await API.get("/employees/me");
+  return response.data;
+};
 
-export default employeeService
+const employeeService = {
+  getAll: getEmployees,
+  getMe,
+  create: createEmployee,
+  update: updateEmployee,
+  delete: deleteEmployee,
+};
+
+export default employeeService;

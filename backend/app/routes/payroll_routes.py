@@ -15,9 +15,16 @@ def get_db():
         db.close()
 
 
+@router.get("/")
+def get_all_payroll(db: Session = Depends(get_db)):
+    records = db.query(Payroll).all()
+    return [{"id": p.id, "employee_id": p.employee_id, "month": p.month, "salary": p.salary, "bonus": p.bonus or 0, "deduction": p.deduction or 0} for p in records]
+
+
 @router.get("/{employee_id}")
 def get_payroll(employee_id: int, db: Session = Depends(get_db)):
-    return db.query(Payroll).filter(Payroll.employee_id == employee_id).all()
+    records = db.query(Payroll).filter(Payroll.employee_id == employee_id).all()
+    return [{"id": p.id, "employee_id": p.employee_id, "month": p.month, "salary": p.salary, "bonus": p.bonus or 0, "deduction": p.deduction or 0} for p in records]
 
 
 @router.post("/")

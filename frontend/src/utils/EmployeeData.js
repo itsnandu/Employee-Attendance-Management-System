@@ -1,23 +1,4 @@
-// ─── Current logged-in employee profile ───────────────────────
-export const ME = {
-  name: "Rahul Sharma",
-  initials: "RS",
-  color: "#4f46e5",
-  role: "Senior Frontend Engineer",
-  dept: "Engineering",
-  email: "rahul.sharma@company.com",
-  phone: "+91 98765 43210",
-  joined: "12 Jan 2022",
-  empId: "EMP-0042",
-  manager: "Priya Verma",
-  location: "Mumbai, India",
-  dob: "15 Aug 1995",
-  blood: "O+",
-  address: "204, Shiv Apartment, Andheri West, Mumbai – 400053",
-  emergencyContact: "Sunita Sharma — +91 99887 76655",
-};
-
-// ─── Public & Company Holidays 2026 ───────────────────────────
+// ─── Public & Company Holidays (fallback when API empty) ───────
 export const HOLIDAYS = [
   { date: "2026-01-01", name: "New Year's Day",        type: "public" },
   { date: "2026-01-14", name: "Makar Sankranti",       type: "public" },
@@ -44,35 +25,39 @@ export const HOLIDAYS = [
   { date: "2026-12-31", name: "Year-End Closure",      type: "company" },
 ];
 
-// Helper: returns holiday object if date is a holiday, else null
-export function getHoliday(ds) {
-  return HOLIDAYS.find(h => h.date === ds) || null;
+// Helper: returns holiday object if date is a holiday, else null (uses provided holidays map)
+export function getHoliday(ds, holidaysMap = {}) {
+  return holidaysMap[ds] || HOLIDAYS.find(h => h.date === ds) || null;
 }
 
 // ─── Attendance helpers ────────────────────────────────────────
 export function dateStr(d) { return d.toISOString().slice(0, 10); }
 
-export function getMyStatus(ds) {
-  const seed =
-    (42 * 17 + ds.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 10;
-  return seed < 6 ? "present" : seed < 8 ? "late" : "absent";
-}
-
-export function buildMonthAttendance(year, month) {
+/** Build month attendance from API data. attendanceList = [{date, check_in, check_out, status}], holidaysMap = { "2026-01-01": {name, type} } */
+export function buildMonthAttendanceFromAPI(year, month, attendanceList = [], holidaysMap = {}) {
   const days = new Date(year, month + 1, 0).getDate();
   const today = new Date();
+  const attByDate = {};
+  (attendanceList || []).forEach(a => {
+    const ds = (a.date || "").slice(0, 10);
+    if (!attByDate[ds]) attByDate[ds] = a;
+  });
   return Array.from({ length: days }, (_, i) => {
     const d = new Date(year, month, i + 1);
     const dow = d.getDay();
     const ds = dateStr(d);
     if (dow === 0 || dow === 6) return { day: i + 1, date: d, type: "weekend" };
-    const holiday = getHoliday(ds);
-    if (holiday) return { day: i + 1, date: d, type: "holiday", holidayName: holiday.name, holidayType: holiday.type };
+    const holiday = getHoliday(ds, holidaysMap);
+    if (holiday) return { day: i + 1, date: d, type: "holiday", holidayName: holiday.name || holiday.title, holidayType: holiday.type || "public" };
     if (d > today) return { day: i + 1, date: d, type: "future" };
-    const st = getMyStatus(ds);
-    const checkIn  = st === "absent" ? null : st === "late" ? "09:45" : "09:00";
-    const checkOut = st === "absent" ? null : "18:10";
-    return { day: i + 1, date: d, type: st, checkIn, checkOut, hours: checkIn ? "9.2h" : null };
+    const rec = attByDate[ds];
+    if (!rec) return { day: i + 1, date: d, type: "absent", checkIn: null, checkOut: null, hours: null };
+    const status = (rec.status || "present").toLowerCase();
+    const cin = rec.check_in || rec.check_in_time || null;
+    const cout = rec.check_out || rec.check_out_time || null;
+    const cinStr = cin ? String(cin).slice(0, 5) : null;
+    const coutStr = cout ? String(cout).slice(0, 5) : null;
+    return { day: i + 1, date: d, type: status.includes("late") ? "late" : "present", checkIn: cinStr, checkOut: coutStr, hours: cin && cout ? "—" : null };
   });
 }
 

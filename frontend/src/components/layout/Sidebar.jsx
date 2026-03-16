@@ -117,7 +117,7 @@
 import React from 'react'
 import {
   LayoutDashboard, Users, Clock, Calendar, BarChart3, ShieldCheck,
-  ChevronLeft, ChevronRight, LogOut, Building2,
+  ChevronLeft, ChevronRight, LogOut, Building2, Megaphone,
 } from 'lucide-react'
 import { getInitials } from '../../utils/helpers'
 import useAuth from '../../hooks/useAuth'
@@ -128,6 +128,8 @@ const NAV = [
   { key:'attendance',      label:'Attendance',        icon:Clock           },
   { key:'leave',           label:'Leave Management',  icon:Calendar        },
   { key:'reports',         label:'Reports',           icon:BarChart3       },
+  { key:'holidays',        label:'Holidays',          icon:Building2       },
+  { key:'announcements',   label:'Announcements',     icon:Megaphone       },
   { key:'usermanagement',  label:'User Management',   icon:ShieldCheck     },
 ]
 

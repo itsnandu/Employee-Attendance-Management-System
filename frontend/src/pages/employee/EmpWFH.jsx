@@ -1,23 +1,11 @@
 // src/pages/employee/EmpWFH.jsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { T, Card, SectionTitle, Badge, Modal, Btn } from "../../components/employee/EmpUI";
 import { MONTH_NAMES } from "../../utils/EmployeeData";
+import wfhService from "../../services/wfhService";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
 
-const TODAY = new Date(2026, 2, 5); // 5 March 2026
-
-// ── Initial WFH records ─────────────────────────────────────────
-const INITIAL_WFH = [
-  { id: 1,  date: "2026-01-07", reason: "Deep focus sprint",                  status: "approved" },
-  { id: 2,  date: "2026-01-14", reason: "Home internet maintenance at office", status: "approved" },
-  { id: 3,  date: "2026-01-21", reason: "Dentist appointment morning",         status: "approved" },
-  { id: 4,  date: "2026-02-04", reason: "Team sync via video call",            status: "approved" },
-  { id: 5,  date: "2026-02-11", reason: "Personal errand in afternoon",        status: "rejected" },
-  { id: 6,  date: "2026-02-18", reason: "Project milestone delivery",          status: "approved" },
-  { id: 7,  date: "2026-02-25", reason: "Focus on quarterly report",           status: "approved" },
-  { id: 8,  date: "2026-03-04", reason: "Avoid commute during rally",          status: "approved" },
-  { id: 9,  date: "2026-03-11", reason: "Standup remote + deliverable",        status: "pending"  },
-  { id: 10, date: "2026-03-18", reason: "Design review session online",        status: "pending"  },
-];
+const TODAY = new Date();
 
 const STATUS_META = {
   approved: { label: "Approved", dot: "#10b981", bg: "#d1fae5", color: "#065f46" },
@@ -57,7 +45,7 @@ function MonthCalendar({ year, month, wfhDates }) {
           if (!d) return <div key={i} />;
           const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
           const wfh = wfhDates[ds];
-          const isToday = ds === "2026-03-05";
+          const isToday = ds === TODAY.toISOString().slice(0, 10);
           const dow = (i) % 7;
           const isWeekend = dow >= 5;
           return (
@@ -78,15 +66,20 @@ function MonthCalendar({ year, month, wfhDates }) {
 
 // ── Main page ────────────────────────────────────────────────────
 export default function EmpWFH() {
-  const [wfhList, setWfhList] = useState(INITIAL_WFH);
-  const [viewMonth, setViewMonth] = useState(2); // 0-indexed, March = 2
-  const [viewYear]  = useState(2026);
+  const { employeeId, loading: empLoading } = useCurrentEmployee();
+  const [wfhList, setWfhList] = useState([]);
+  const [viewMonth, setViewMonth] = useState(TODAY.getMonth());
+  const [viewYear]  = useState(TODAY.getFullYear());
   const [filter, setFilter]     = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [form, setForm]           = useState({ date: "", reason: "" });
   const [formError, setFormError] = useState("");
   const [success, setSuccess]     = useState(false);
   const [detail, setDetail]       = useState(null);
+
+  useEffect(() => {
+    wfhService.getWFH(employeeId).then((data) => setWfhList(Array.isArray(data) ? data : []));
+  }, [employeeId]);
 
   // Build a date->wfh map for calendar
   const wfhDates = useMemo(() => {
@@ -102,8 +95,8 @@ export default function EmpWFH() {
 
   // This month's count
   const thisMonthApproved = wfhList.filter(w => {
-    const d = new Date(w.date + "T00:00:00");
-    return d.getFullYear() === 2026 && d.getMonth() === 2 && w.status === "approved";
+    const d = new Date((w.date || "") + "T00:00:00");
+    return d.getFullYear() === viewYear && d.getMonth() === viewMonth && (w.status || "").toLowerCase() === "approved";
   }).length;
 
   // Filtered list sorted newest first
@@ -115,17 +108,26 @@ export default function EmpWFH() {
   function openModal()  { setForm({ date: "", reason: "" }); setFormError(""); setSuccess(false); setShowModal(true); }
   function closeModal() { setShowModal(false); }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!form.date)              { setFormError("Please select a date."); return; }
     if (!form.reason.trim())     { setFormError("Please provide a reason."); return; }
+    if (!employeeId) {
+      setFormError("Your employee profile could not be loaded. Please try refreshing or contact HR.");
+      return;
+    }
     const chosen = new Date(form.date + "T00:00:00");
     if (chosen <= TODAY)         { setFormError("Date must be in the future."); return; }
     const dow = chosen.getDay();
     if (dow === 0 || dow === 6)  { setFormError("Cannot apply WFH on weekends."); return; }
     if (wfhDates[form.date])     { setFormError("You already have a WFH request for this date."); return; }
-    setWfhList(prev => [...prev, { id: Date.now(), date: form.date, reason: form.reason.trim(), status: "pending" }]);
-    setSuccess(true);
-    setTimeout(closeModal, 1600);
+    try {
+      await wfhService.requestWFH({ employee_id: employeeId, date: form.date, reason: form.reason.trim() });
+      setWfhList(prev => [...prev, { id: Date.now(), date: form.date, reason: form.reason.trim(), status: "pending" }]);
+      setSuccess(true);
+      setTimeout(() => { closeModal(); wfhService.getWFH(employeeId).then(d => setWfhList(Array.isArray(d) ? d : [])); }, 1600);
+    } catch (err) {
+      setFormError(err.message || "Failed to submit");
+    }
   }
 
   function cancelRequest(id) {
@@ -141,8 +143,18 @@ export default function EmpWFH() {
     { year: viewYear, month: (viewMonth + 1) % 12,        label: MONTH_NAMES[(viewMonth + 1) % 12] },
   ];
 
+  const cannotSubmit = !employeeId || empLoading;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {!empLoading && !employeeId && (
+        <div style={{
+          background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 12,
+          padding: "14px 20px", color: "#92400e", fontSize: 14, fontWeight: 600,
+        }}>
+          ⚠️ Your employee profile could not be loaded. Please refresh the page or contact HR to link your account.
+        </div>
+      )}
 
       {/* ── Banner ── */}
       <div style={{
@@ -161,10 +173,20 @@ export default function EmpWFH() {
             This month: <strong style={{ color: "#fff" }}>{thisMonthApproved} approved</strong> WFH days · Policy allows <strong style={{ color:"#fff" }}>2 days/week</strong>
           </div>
         </div>
-        <button onClick={openModal} style={{
-          background: "#fff", color: "#0891b2", border: "none", borderRadius: 10,
-          padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer", flexShrink: 0, position: "relative",
-        }}>+ New WFH Request</button>
+        <button
+          onClick={openModal}
+          disabled={!employeeId || empLoading}
+          style={{
+            background: (!employeeId || empLoading) ? "#94a3b8" : "#fff",
+            color: (!employeeId || empLoading) ? "#64748b" : "#0891b2",
+            border: "none", borderRadius: 10,
+            padding: "12px 24px", fontSize: 14, fontWeight: 700,
+            cursor: (!employeeId || empLoading) ? "not-allowed" : "pointer",
+            flexShrink: 0, position: "relative", opacity: (!employeeId || empLoading) ? 0.8 : 1,
+          }}
+        >
+          {empLoading ? "Loading..." : "+ New WFH Request"}
+        </button>
       </div>
 
       {/* ── Stats ── */}

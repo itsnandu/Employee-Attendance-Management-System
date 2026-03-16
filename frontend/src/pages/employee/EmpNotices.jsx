@@ -1,23 +1,35 @@
 // src/pages/employee/EmpNotices.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, Card, Badge, Modal } from "../../components/employee/EmpUI";
-import { ANNOUNCEMENTS } from "../../utils/EmployeeData";
+import announcementService from "../../services/announcementService";
 
-const ALL_NOTICES = [
-  ...ANNOUNCEMENTS,
-  { id: 5, title: "Diwali Bonus Announcement",    date: "Oct 20, 2025", tag: "HR",      color: "#4f46e5", msg: "All employees are eligible for a Diwali bonus equivalent to 1 month's basic salary, credited by November 1st." },
-  { id: 6, title: "IT Infrastructure Upgrade",    date: "Oct 10, 2025", tag: "IT",      color: "#8b5cf6", msg: "Scheduled maintenance on Oct 12th 11pm–2am. Systems will be briefly unavailable. Save your work beforehand." },
-  { id: 7, title: "Annual Sports Day",            date: "Sep 28, 2025", tag: "Event",   color: "#ec4899", msg: "Annual company sports day on October 5th at the corporate grounds. Register your team by Oct 1st." },
-  { id: 8, title: "Updated Code of Conduct",      date: "Sep 15, 2025", tag: "Policy",  color: "#f59e0b", msg: "Please review the updated Code of Conduct available on the HR portal. Acknowledgment required by Sep 30." },
-];
+const TAG_COLORS = { HR: "#4f46e5", Holiday: "#10b981", Policy: "#f59e0b", Wellness: "#06b6d4", IT: "#8b5cf6", Event: "#ec4899", Finance: "#0891b2", Operations: "#64748b" };
 
-const TAGS = ["All", "HR", "Holiday", "Policy", "Wellness", "IT", "Event"];
+function fmtDate(ds) {
+  if (!ds) return "—";
+  return new Date((ds + "").slice(0, 10) + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
 
 export default function EmpNotices() {
+  const [items, setItems] = useState([]);
   const [tagFilter, setTagFilter] = useState("All");
   const [selected,  setSelected]  = useState(null);
   const [read,      setRead]      = useState(new Set());
 
+  useEffect(() => {
+    announcementService.getAnnouncements().then((data) => setItems(Array.isArray(data) ? data : []));
+  }, []);
+
+  const ALL_NOTICES = items.map(a => ({
+    id: a.id,
+    title: a.title || "",
+    date: fmtDate(a.date || a.created_at),
+    tag: a.tag || "HR",
+    color: TAG_COLORS[a.tag] || "#4f46e5",
+    msg: a.msg || a.message || "",
+  }));
+
+  const tags = ["All", ...new Set(ALL_NOTICES.map(n => n.tag).filter(Boolean))];
   const filtered = tagFilter === "All"
     ? ALL_NOTICES
     : ALL_NOTICES.filter(n => n.tag === tagFilter);
@@ -49,7 +61,7 @@ export default function EmpNotices() {
 
       {/* Tag filters */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        {TAGS.map(tag => (
+        {tags.map(tag => (
           <button key={tag} onClick={()=>setTagFilter(tag)} style={{
             padding:"6px 18px", borderRadius:99, border:"1.5px solid",
             cursor:"pointer", fontSize:13, fontWeight:500,

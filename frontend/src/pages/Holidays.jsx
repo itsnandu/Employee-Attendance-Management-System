@@ -1,5 +1,6 @@
-// src/pages/AdminHolidays.jsx
-import React, { useState, useMemo } from 'react'
+// src/pages/Holidays.jsx
+import React, { useState, useMemo, useEffect } from 'react'
+import holidayService from '../services/holidayService'
 
 const T = {
   primary: '#4f46e5', primaryLight: '#e0e7ff', accent: '#06b6d4',
@@ -15,31 +16,6 @@ const TYPE_META = {
 }
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-const INITIAL_HOLIDAYS = [
-  { id:1,  date:'2026-01-01', name:"New Year's Day",       type:'public'     },
-  { id:2,  date:'2026-01-14', name:'Makar Sankranti',       type:'public'     },
-  { id:3,  date:'2026-01-26', name:'Republic Day',          type:'public'     },
-  { id:4,  date:'2026-03-25', name:'Holi',                  type:'public'     },
-  { id:5,  date:'2026-04-02', name:'Ram Navami',            type:'restricted' },
-  { id:6,  date:'2026-04-03', name:'Good Friday',           type:'public'     },
-  { id:7,  date:'2026-04-14', name:'Ambedkar Jayanti',      type:'public'     },
-  { id:8,  date:'2026-05-01', name:'Maharashtra Day',       type:'public'     },
-  { id:9,  date:'2026-05-23', name:'Buddha Purnima',        type:'restricted' },
-  { id:10, date:'2026-06-19', name:'Eid ul-Adha',           type:'public'     },
-  { id:11, date:'2026-07-17', name:'Muharram',              type:'restricted' },
-  { id:12, date:'2026-08-15', name:'Independence Day',      type:'public'     },
-  { id:13, date:'2026-08-26', name:'Ganesh Chaturthi',      type:'public'     },
-  { id:14, date:'2026-09-15', name:'Milad-un-Nabi',         type:'restricted' },
-  { id:15, date:'2026-10-02', name:'Gandhi Jayanti',        type:'public'     },
-  { id:16, date:'2026-10-20', name:'Dussehra',              type:'public'     },
-  { id:17, date:'2026-10-28', name:'Diwali (Lakshmi Puja)', type:'public'     },
-  { id:18, date:'2026-10-29', name:'Diwali (Padwa)',        type:'public'     },
-  { id:19, date:'2026-10-30', name:'Bhai Dooj',             type:'restricted' },
-  { id:20, date:'2026-11-15', name:'Guru Nanak Jayanti',    type:'public'     },
-  { id:21, date:'2026-12-25', name:'Christmas',             type:'public'     },
-  { id:22, date:'2026-12-31', name:'Year-End Closure',      type:'company'    },
-]
 
 function fmt(ds) {
   const d = new Date(ds + 'T00:00:00')
@@ -71,7 +47,7 @@ function Modal({ open, onClose, title, children }) {
 }
 
 export default function AdminHolidays() {
-  const [holidays, setHolidays] = useState(INITIAL_HOLIDAYS)
+  const [holidays, setHolidays] = useState([])
   const [filter, setFilter]     = useState('all')
   const [search, setSearch]     = useState('')
   const [showAdd, setShowAdd]   = useState(false)
@@ -79,20 +55,27 @@ export default function AdminHolidays() {
   const [deleteId, setDeleteId] = useState(null)
   const [form, setForm]         = useState({ date:'', name:'', type:'public' })
   const [formError, setFormError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    holidayService.getHolidays().then((data) => data && setHolidays(Array.isArray(data) ? data : []))
+  }, [])
 
   const filtered = useMemo(() => {
-    let list = filter === 'all' ? holidays : holidays.filter(h => h.type === filter)
-    if (search.trim()) list = list.filter(h => h.name.toLowerCase().includes(search.toLowerCase()))
-    return [...list].sort((a,b) => a.date.localeCompare(b.date))
+    let list = filter === 'all' ? holidays : holidays.filter(h => (h.type || h.name) && (h.type === filter))
+    const nameOrTitle = (h) => (h.name || h.title || '').toLowerCase()
+    if (search.trim()) list = list.filter(h => nameOrTitle(h).includes(search.toLowerCase()))
+    return [...list].sort((a,b) => (a.date || a.holiday_date || '').localeCompare(b.date || b.holiday_date || ''))
   }, [holidays, filter, search])
 
   // Group by month
   const byMonth = useMemo(() => {
     const m = {}
     filtered.forEach(h => {
-      const mo = h.date.slice(0,7)
+      const d = h.date || h.holiday_date || ''
+      const mo = d.slice(0, 7)
       if (!m[mo]) m[mo] = []
-      m[mo].push(h)
+      m[mo].push({ ...h, date: d, name: h.name || h.title })
     })
     return m
   }, [filtered])
@@ -100,7 +83,7 @@ export default function AdminHolidays() {
   function openAdd()  { setForm({ date:'', name:'', type:'public' }); setFormError(''); setShowAdd(true) }
   function closeAdd() { setShowAdd(false); setFormError('') }
 
-  function openEdit(h) { setForm({ date:h.date, name:h.name, type:h.type }); setFormError(''); setEditItem(h) }
+  function openEdit(h) { setForm({ date:h.date||h.holiday_date||'', name:h.name||h.title||'', type:h.type||'public' }); setFormError(''); setEditItem(h) }
   function closeEdit() { setEditItem(null); setFormError('') }
 
   function validate() {
@@ -109,25 +92,50 @@ export default function AdminHolidays() {
     return true
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!validate()) return
-    setHolidays(prev => [...prev, { id: Date.now(), date:form.date, name:form.name.trim(), type:form.type }])
-    closeAdd()
+    setLoading(true)
+    try {
+      await holidayService.createHoliday({ date: form.date, name: form.name.trim(), type: form.type })
+      const data = await holidayService.getHolidays()
+      setHolidays(Array.isArray(data) ? data : [])
+      closeAdd()
+    } catch (err) {
+      setFormError(err.message || 'Failed to add holiday')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleEdit() {
+  async function handleEdit() {
     if (!validate()) return
-    setHolidays(prev => prev.map(h => h.id === editItem.id ? { ...h, date:form.date, name:form.name.trim(), type:form.type } : h))
-    closeEdit()
+    setLoading(true)
+    try {
+      await holidayService.updateHoliday(editItem.id, { date: form.date, name: form.name.trim(), type: form.type })
+      setHolidays(prev => prev.map(h => h.id === editItem.id ? { ...h, date: form.date, name: form.name.trim(), type: form.type } : h))
+      closeEdit()
+    } catch (err) {
+      setFormError(err.message || 'Failed to update')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleDelete() {
-    setHolidays(prev => prev.filter(h => h.id !== deleteId))
-    setDeleteId(null)
+  async function handleDelete() {
+    setLoading(true)
+    try {
+      await holidayService.deleteHoliday(deleteId)
+      setHolidays(prev => prev.filter(h => h.id !== deleteId))
+      setDeleteId(null)
+    } catch (err) {
+      alert(err.message || 'Failed to delete')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const total   = holidays.length
-  const pub     = holidays.filter(h => h.type === 'public').length
+  const pub     = holidays.filter(h => (h.type || 'public') === 'public').length
   const comp    = holidays.filter(h => h.type === 'company').length
   const restr   = holidays.filter(h => h.type === 'restricted').length
 
@@ -216,7 +224,7 @@ export default function AdminHolidays() {
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {list.map(h => {
-                  const meta = TYPE_META[h.type]
+                  const meta = TYPE_META[h.type || 'public']
                   return (
                     <div key={h.id} style={{
                       display:'flex', alignItems:'center', gap:16,
@@ -226,13 +234,13 @@ export default function AdminHolidays() {
                     }}>
                       {/* Date badge */}
                       <div style={{ minWidth:54, textAlign:'center', padding:'8px 4px', borderRadius:10, background:meta.bg, color:meta.color, flexShrink:0 }}>
-                        <div style={{ fontSize:20, fontWeight:800, lineHeight:1 }}>{new Date(h.date+'T00:00:00').getDate()}</div>
-                        <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase' }}>{MONTH_NAMES[parseInt(h.date.slice(5,7))-1]}</div>
+                        <div style={{ fontSize:20, fontWeight:800, lineHeight:1 }}>{new Date((h.date || h.holiday_date || '')+'T00:00:00').getDate()}</div>
+                        <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase' }}>{MONTH_NAMES[parseInt((h.date || h.holiday_date || '0000-01').slice(5,7))-1]}</div>
                       </div>
                       {/* Name + day */}
                       <div style={{ flex:1 }}>
                         <div style={{ fontWeight:700, fontSize:15, color:T.text, marginBottom:4 }}>{h.name}</div>
-                        <div style={{ fontSize:12, color:T.muted }}>{fmt(h.date)}</div>
+                        <div style={{ fontSize:12, color:T.muted }}>{fmt(h.date||h.holiday_date)}</div>
                       </div>
                       {/* Type badge */}
                       <span style={{ padding:'4px 12px', borderRadius:99, fontSize:12, fontWeight:600, background:meta.bg, color:meta.color }}>{meta.label}</span>
@@ -262,7 +270,7 @@ export default function AdminHolidays() {
         {formError && <div style={{ fontSize:13, color:T.danger, background:'#fff0f0', borderRadius:8, padding:'8px 12px', marginTop:4 }}>{formError}</div>}
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
           <button onClick={closeAdd} style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.border}`, background:T.surface2, color:T.muted, cursor:'pointer', fontWeight:600, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
-          <button onClick={handleAdd} style={{ padding:'9px 24px', borderRadius:10, border:'none', background:T.primary, color:'#fff', cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Add Holiday</button>
+          <button onClick={handleAdd} disabled={loading} style={{ padding:'9px 24px', borderRadius:10, border:'none', background:T.primary, color:'#fff', cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Add Holiday</button>
         </div>
       </Modal>
 

@@ -7,6 +7,8 @@ import Employees      from '../pages/Employees'
 import Attendance     from '../pages/Attendance'
 import LeaveManagement from '../pages/LeaveManagement'
 import Reports        from '../pages/Reports'
+import Holidays       from '../pages/Holidays'
+import Announcments   from '../pages/Announcments'
 import UserManagement from '../pages/Usermanagement'
 
 const PAGES = {
@@ -15,6 +17,8 @@ const PAGES = {
   attendance:      () => <Attendance/>,
   leave:           () => <LeaveManagement/>,
   reports:         () => <Reports/>,
+  holidays:        () => <Holidays/>,
+  announcements:   () => <Announcments/>,
   usermanagement:  () => <UserManagement/>,
 }
 

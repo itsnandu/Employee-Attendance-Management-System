@@ -1,11 +1,12 @@
 // src/pages/employee/EmpHolidays.jsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { T, Card, SectionTitle } from "../../components/employee/EmpUI";
-import { HOLIDAYS, MONTH_NAMES } from "../../utils/EmployeeData";
+import { MONTH_NAMES } from "../../utils/EmployeeData";
+import holidayService from "../../services/holidayService";
 
-const TODAY = new Date(2026, 2, 5); // App demo date
+const TODAY = new Date();
 
-function parseDate(ds) { return new Date(ds + "T00:00:00"); }
+function parseDate(ds) { return new Date((ds || "") + "T00:00:00"); }
 
 function formatDisplayDate(ds) {
   const d = parseDate(ds);
@@ -23,12 +24,23 @@ const TYPE_META = {
   company: { label: "Company Holiday", bg: "#cffafe", color: "#155e75", dot: "#06b6d4" },
 };
 
-// Exclude restricted holidays everywhere
-const VISIBLE_HOLIDAYS = HOLIDAYS.filter(h => h.type !== "restricted");
-
 export default function EmpHolidays() {
+  const [holidays, setHolidays] = useState([]);
   const [monthFilter, setMonthFilter] = useState("all");
   const [typeFilter,  setTypeFilter]  = useState("all");
+
+  useEffect(() => {
+    holidayService.getHolidays().then((data) => setHolidays(Array.isArray(data) ? data : []));
+  }, []);
+
+  const VISIBLE_HOLIDAYS = useMemo(() =>
+    holidays.filter(h => (h.type || "public") !== "restricted").map(h => ({
+      ...h,
+      date: h.date || h.holiday_date || "",
+      name: h.name || h.title || "",
+    })),
+    [holidays]
+  );
 
   const upcoming = VISIBLE_HOLIDAYS.filter(h => getDaysUntil(h.date) > 0);
   const nextHoliday = upcoming.sort((a,b)=>a.date.localeCompare(b.date))[0];

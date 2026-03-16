@@ -96,7 +96,7 @@ export function EmptyState({ icon, title, sub }) {
   );
 }
 
-export function Btn({ children, onClick, variant = "primary", style = {} }) {
+export function Btn({ children, onClick, variant = "primary", disabled, style = {} }) {
   const styles = {
     primary: { background: T.primary, color: "#fff", border: "none" },
     outline: { background: "#fff", color: T.primary, border: `1.5px solid ${T.primary}` },
@@ -104,12 +104,18 @@ export function Btn({ children, onClick, variant = "primary", style = {} }) {
     danger:  { background: "#fee2e2", color: T.danger, border: `1px solid #fca5a5` },
   };
   return (
-    <button onClick={onClick} style={{
-      padding: "8px 20px", borderRadius: 10, cursor: "pointer",
-      fontSize: 13, fontWeight: 600, transition: "all .2s",
-      fontFamily: "'DM Sans', sans-serif",
-      ...styles[variant], ...style,
-    }}>{children}</button>
+    <button
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      style={{
+        padding: "8px 20px", borderRadius: 10,
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontSize: 13, fontWeight: 600, transition: "all .2s",
+        fontFamily: "'DM Sans', sans-serif",
+        opacity: disabled ? 0.6 : 1,
+        ...styles[variant], ...style,
+      }}
+    >{children}</button>
   );
 }
 

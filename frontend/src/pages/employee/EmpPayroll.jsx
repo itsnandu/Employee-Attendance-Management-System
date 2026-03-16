@@ -1,7 +1,9 @@
 // src/pages/employee/EmpPayroll.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, Card, SectionTitle, StatusBadge, Btn, Modal } from "../../components/employee/EmpUI";
-import { PAYSLIPS } from "../../utils/EmployeeData";
+import payrollService from "../../services/payrollService";
+import employeeService from "../../services/employeeService";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
 
 function BreakdownRow({ label, value, bold, color }) {
   return (
@@ -12,8 +14,47 @@ function BreakdownRow({ label, value, bold, color }) {
   );
 }
 
+function fmtCurrency(n) {
+  if (n == null || isNaN(n)) return "—";
+  return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
 export default function EmpPayroll() {
+  const { employee, employeeId } = useCurrentEmployee();
+  const [payroll, setPayroll] = useState([]);
   const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    if (!employeeId) return;
+    payrollService.getPayrollByEmployee(employeeId).then((data) => setPayroll(Array.isArray(data) ? data : []));
+  }, [employeeId]);
+
+  const PAYSLIPS = payroll.map(p => {
+    const gross = (p.salary || 0) + (p.bonus || 0);
+    const ded = p.deduction || 0;
+    const net = gross - ded;
+    return {
+      id: p.id,
+      month: p.month || "—",
+      gross: fmtCurrency(gross),
+      deductions: fmtCurrency(ded),
+      net: fmtCurrency(net),
+      status: "paid",
+      basic: fmtCurrency((p.salary || 0) * 0.5),
+      hra: fmtCurrency((p.salary || 0) * 0.2),
+      special: fmtCurrency((p.salary || 0) * 0.3),
+      pf: fmtCurrency(ded * 0.4),
+      tax: fmtCurrency(ded * 0.46),
+      professional: fmtCurrency(200),
+      other: fmtCurrency(ded * 0.14),
+    };
+  });
+
+  const latest = PAYSLIPS[0];
+  const ctc = employee?.salary ? employee.salary * 12 : 0;
+  const monthlyGross = employee?.salary || 0;
+  const monthlyNet = latest ? parseFloat(String(latest.net).replace(/[^0-9.]/g, "")) || 0 : 0;
+  const deductions = latest ? parseFloat(String(latest.deductions).replace(/[^0-9.]/g, "")) || 0 : 0;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
@@ -28,15 +69,15 @@ export default function EmpPayroll() {
         <div style={{ position:"absolute", right:-30, top:-30, width:180, height:180, borderRadius:"50%", background:"rgba(255,255,255,.06)" }}/>
         <div>
           <div style={{ fontSize:13, color:"rgba(255,255,255,.65)", marginBottom:4, letterSpacing:".5px" }}>ANNUAL CTC</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:36, lineHeight:1 }}>₹15,00,000</div>
-          <div style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginTop:6 }}>Senior Frontend Engineer · Engineering</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:36, lineHeight:1 }}>{fmtCurrency(ctc)}</div>
+          <div style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginTop:6 }}>{employee?.role || employee?.position || "—"} · {employee?.department || "—"}</div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, position:"relative" }}>
           {[
-            { label:"Monthly Gross", value:"₹1,25,000" },
-            { label:"Monthly Net",   value:"₹1,06,500" },
-            { label:"Deductions",    value:"₹18,500"   },
-            { label:"YTD Earned",    value:"₹2,13,000" },
+            { label:"Monthly Gross", value: fmtCurrency(monthlyGross) },
+            { label:"Monthly Net",   value: fmtCurrency(monthlyNet) },
+            { label:"Deductions",    value: fmtCurrency(deductions) },
+            { label:"YTD Earned",    value: fmtCurrency(monthlyNet * PAYSLIPS.length) },
           ].map(s=>(
             <div key={s.label} style={{ background:"rgba(255,255,255,.13)", borderRadius:10, padding:"10px 16px", backdropFilter:"blur(6px)" }}>
               <div style={{ fontSize:11, color:"rgba(255,255,255,.6)", marginBottom:2 }}>{s.label}</div>
@@ -49,6 +90,9 @@ export default function EmpPayroll() {
       {/* Payslips list */}
       <Card style={{ padding:20 }}>
         <SectionTitle>Payslips</SectionTitle>
+        {PAYSLIPS.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"40px 0", color:T.muted }}>No payslips found</div>
+        ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {PAYSLIPS.map(p=>(
             <div key={p.id} style={{
@@ -77,6 +121,7 @@ export default function EmpPayroll() {
             </div>
           ))}
         </div>
+        )}
       </Card>
 
       {/* Payslip detail modal */}

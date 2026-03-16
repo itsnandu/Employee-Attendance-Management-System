@@ -4,20 +4,7 @@ import {
   Edit2, Trash2, X, Eye, EyeOff, Check, ChevronDown, Users,
   Lock, Mail, Phone, Building2, UserCheck, UserX, Key, Filter
 } from "lucide-react";
-
-// ── Mock Data ─────────────────────────────────────────────────
-const INITIAL_USERS = [
-  { id:1,  name:"Admin User",    email:"admin@hrms.com",          phone:"+91 98765 00001", role:"admin",    dept:"Management",   status:"active",   initials:"AU", color:"#4f46e5", joined:"2023-01-15", lastLogin:"2026-03-09" },
-  { id:2,  name:"Rahul Sharma",  email:"rahul.sharma@hrms.com",   phone:"+91 98765 10001", role:"employee", dept:"Engineering",  status:"active",   initials:"RS", color:"#4f46e5", joined:"2023-03-20", lastLogin:"2026-03-08" },
-  { id:3,  name:"Priya Verma",   email:"priya.verma@hrms.com",    phone:"+91 98765 10002", role:"employee", dept:"Engineering",  status:"active",   initials:"PV", color:"#06b6d4", joined:"2023-05-10", lastLogin:"2026-03-07" },
-  { id:4,  name:"Sneha Patel",   email:"sneha.patel@hrms.com",    phone:"+91 98765 10003", role:"hr",       dept:"HR",           status:"active",   initials:"SP", color:"#8b5cf6", joined:"2023-02-01", lastLogin:"2026-03-09" },
-  { id:5,  name:"Arjun Mehta",   email:"arjun.mehta@hrms.com",    phone:"+91 98765 10004", role:"employee", dept:"Engineering",  status:"inactive", initials:"AM", color:"#10b981", joined:"2023-07-15", lastLogin:"2025-12-20" },
-  { id:6,  name:"Kavya Nair",    email:"kavya.nair@hrms.com",     phone:"+91 98765 10005", role:"manager",  dept:"Engineering",  status:"active",   initials:"KN", color:"#f59e0b", joined:"2022-11-05", lastLogin:"2026-03-08" },
-  { id:7,  name:"Vikram Singh",  email:"vikram.singh@hrms.com",   phone:"+91 98765 10006", role:"employee", dept:"Engineering",  status:"active",   initials:"VS", color:"#ef4444", joined:"2024-01-10", lastLogin:"2026-03-06" },
-  { id:8,  name:"Divya Reddy",   email:"divya.reddy@hrms.com",    phone:"+91 98765 10007", role:"employee", dept:"Design",       status:"active",   initials:"DR", color:"#ec4899", joined:"2024-02-20", lastLogin:"2026-03-09" },
-  { id:9,  name:"Manish Kumar",  email:"manish.kumar@hrms.com",   phone:"+91 98765 10008", role:"employee", dept:"Design",       status:"suspended",initials:"MK", color:"#14b8a6", joined:"2023-09-01", lastLogin:"2026-01-15" },
-  { id:10, name:"HR Manager",    email:"hr.manager@hrms.com",     phone:"+91 98765 10009", role:"hr",       dept:"HR",           status:"active",   initials:"HM", color:"#f97316", joined:"2022-06-01", lastLogin:"2026-03-08" },
-];
+import employeeService from "../services/employeeService";
 
 const ROLES = ["admin","manager","hr","employee"];
 const DEPTS = ["Management","Engineering","Design","HR","Finance","Sales"];
@@ -133,7 +120,7 @@ function ActionMenu({ user, onEdit, onDelete, onToggleStatus, onResetPassword })
 }
 
 // ── Add / Edit User Modal ─────────────────────────────────────
-function UserModal({ user, onClose, onSave }) {
+function UserModal({ user, onClose, onSave, departments }) {
   const isEdit = !!user;
   const [form, setForm] = useState(user ? { ...user } : {
     name:"", email:"", phone:"", role:"employee", dept:"Engineering", status:"active", password:"",
@@ -148,7 +135,6 @@ function UserModal({ user, onClose, onSave }) {
     if (!form.name.trim())  e.name  = "Name is required";
     if (!form.email.trim()) e.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid email";
-    if (!isEdit && !form.password) e.password = "Password is required";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -275,7 +261,7 @@ function UserModal({ user, onClose, onSave }) {
                   onFocus={e => e.target.style.borderColor="#4f46e5"}
                   onBlur={e  => e.target.style.borderColor="#e2e8f0"}
                 >
-                  {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  {(departments?.length ? departments : DEPTS).map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 <ChevronDown size={13} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", color:"#94a3b8", pointerEvents:"none" }}/>
               </div>
@@ -434,15 +420,39 @@ function Toast({ message, type, onClose }) {
   );
 }
 
+function toUserFormat(emp) {
+  const name = emp.name || [emp.first_name, emp.last_name].filter(Boolean).join(" ") || "Unknown";
+  const initials = name.trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+  return {
+    id: emp.id,
+    name,
+    email: emp.email || "",
+    phone: emp.phone || emp.phone_number || "",
+    role: emp.role || emp.position || "employee",
+    dept: emp.dept || emp.department || "",
+    status: emp.status || "active",
+    initials,
+    color: ROLE_META[emp.role || emp.position]?.color || "#4f46e5",
+    joined: emp.joined || emp.joining_date || new Date().toISOString().slice(0, 10),
+    lastLogin: "—",
+  };
+}
+
 // ── Main Component ─────────────────────────────────────────────
 export default function UserManagement() {
-  const [users, setUsers]           = useState(INITIAL_USERS);
+  const [users, setUsers]           = useState([]);
   const [search, setSearch]         = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [modal, setModal]           = useState(null); // null | { type, user? }
   const [toast, setToast]           = useState(null);
   const [viewMode, setViewMode]     = useState("table"); // "table" | "grid"
+
+  useEffect(() => {
+    employeeService.getAll().then((data) => {
+      if (Array.isArray(data)) setUsers(data.map(toUserFormat));
+    });
+  }, []);
 
   function showToast(message, type = "success") { setToast({ message, type }); }
 
@@ -461,31 +471,47 @@ export default function UserManagement() {
     return matchSearch && matchRole && matchStatus;
   });
 
-  function saveUser(data) {
-    if (modal.user) {
-      setUsers(prev => prev.map(u => u.id === modal.user.id ? { ...u, ...data } : u));
-      showToast(`${data.name} updated successfully`);
-    } else {
-      setUsers(prev => [...prev, { ...data, id: Date.now(), joined: new Date().toISOString().slice(0,10), lastLogin:"—" }]);
-      showToast(`${data.name} created successfully`);
+  async function saveUser(data) {
+    const payload = { name: data.name, email: data.email, phone: data.phone, role: data.role, department: data.dept, status: data.status, joined: data.joined };
+    try {
+      if (modal.user) {
+        await employeeService.update(modal.user.id, payload);
+        setUsers(prev => prev.map(u => u.id === modal.user.id ? toUserFormat({ ...u, ...data }) : u));
+        showToast(`${data.name} updated successfully`);
+      } else {
+        const created = await employeeService.create(payload);
+        setUsers(prev => [...prev, toUserFormat(created)]);
+        showToast(`${data.name} created successfully`);
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to save", "error");
+      return;
     }
     setModal(null);
   }
 
-  function deleteUser(id) {
+  async function deleteUser(id) {
     const u = users.find(u => u.id === id);
-    setUsers(prev => prev.filter(u => u.id !== id));
-    showToast(`${u?.name} deleted`, "error");
+    try {
+      await employeeService.delete(id);
+      setUsers(prev => prev.filter(u => u.id !== id));
+      showToast(`${u?.name} deleted`, "error");
+    } catch (err) {
+      showToast(err.message || "Failed to delete", "error");
+    }
     setModal(null);
   }
 
-  function toggleStatus(id) {
-    setUsers(prev => prev.map(u => {
-      if (u.id !== id) return u;
-      const next = u.status === "active" ? "suspended" : "active";
+  async function toggleStatus(id) {
+    const u = users.find(u => u.id === id);
+    const next = u.status === "active" ? "suspended" : "active";
+    try {
+      await employeeService.update(id, { name: u.name, email: u.email, phone: u.phone, role: u.role, department: u.dept, status: next, joined: u.joined });
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, status: next } : u));
       showToast(`${u.name} ${next === "active" ? "activated" : "suspended"}`, next === "active" ? "success" : "info");
-      return { ...u, status: next };
-    }));
+    } catch (err) {
+      showToast(err.message || "Failed to update", "error");
+    }
   }
 
   return (
@@ -706,7 +732,7 @@ export default function UserManagement() {
 
       {/* ── Modals ── */}
       {(modal?.type === "add" || modal?.type === "edit") && (
-        <UserModal user={modal.user || null} onClose={() => setModal(null)} onSave={saveUser} />
+        <UserModal user={modal.user || null} onClose={() => setModal(null)} onSave={saveUser} departments={[...new Set(users.map(u=>u.dept).filter(Boolean))].sort()} />
       )}
       {modal?.type === "delete" && (
         <DeleteModal user={modal.user} onClose={() => setModal(null)} onConfirm={() => deleteUser(modal.user.id)} />

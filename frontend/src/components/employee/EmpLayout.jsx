@@ -126,9 +126,9 @@
 //               display: "flex", alignItems: "center", gap: 10,
 //               padding: "10px 12px", borderRadius: 10, background: "#1e293b", marginBottom: 8,
 //             }}>
-//               <Avatar initials={ME.initials} color={ME.color} size={32} />
+//               <Avatar initials={me.initials} color={me.color} size={32} />
 //               <div style={{ overflow: "hidden" }}>
-//                 <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ME.name}</div>
+//                 <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me.name}</div>
 //                 <div style={{ fontSize: 11, color: "#64748b" }}>Employee</div>
 //               </div>
 //             </div>
@@ -281,7 +281,7 @@
 //                   outlineOffset: 2, transition: "outline .15s",
 //                 }}
 //               >
-//                 <Avatar initials={ME.initials} color={ME.color} size={38} />
+//                 <Avatar initials={me.initials} color={me.color} size={38} />
 //               </button>
 
 //               {/* Profile Dropdown */}
@@ -300,10 +300,10 @@
 //                     borderBottom: `1px solid ${T.border}`,
 //                     display: "flex", alignItems: "center", gap: 10,
 //                   }}>
-//                     <Avatar initials={ME.initials} color={ME.color} size={38} />
+//                     <Avatar initials={me.initials} color={me.color} size={38} />
 //                     <div>
-//                       <div style={{ fontWeight: 700, fontSize: 14 }}>{ME.name}</div>
-//                       <div style={{ fontSize: 11, color: T.muted }}>{ME.role}</div>
+//                       <div style={{ fontWeight: 700, fontSize: 14 }}>{me.name}</div>
+//                       <div style={{ fontSize: 11, color: T.muted }}>{me.role}</div>
 //                     </div>
 //                   </div>
 
@@ -373,8 +373,8 @@
 // src/components/employee/EmpLayout.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { T, Avatar } from "./EmpUI";
-import { ME } from "../../utils/EmployeeData";
 import useAuth from "../../hooks/useAuth";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
 
 // ── Sample notifications ───────────────────────────────────────
 const NOTIFICATIONS = [
@@ -537,7 +537,9 @@ export default function EmpLayout({ page, setPage, children }) {
   const [notifOpen, setNotifOpen]   = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifs, setNotifs]         = useState(NOTIFICATIONS);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const { employee } = useCurrentEmployee();
+  const me = employee ? { name: employee.name, initials: (employee.name || "?").slice(0,2).toUpperCase(), color: "#4f46e5", role: employee.role || employee.position } : { name: user?.email?.split("@")[0] || "User", initials: "?", color: "#4f46e5", role: "" };
   const w = collapsed ? 72 : 260;
 
   const notifRef   = useRef(null);
@@ -625,9 +627,9 @@ export default function EmpLayout({ page, setPage, children }) {
               display: "flex", alignItems: "center", gap: 10,
               padding: "10px 12px", borderRadius: 10, background: "#1e293b", marginBottom: 8,
             }}>
-              <Avatar initials={ME.initials} color={ME.color} size={32} />
+              <Avatar initials={me.initials} color={me.color} size={32} />
               <div style={{ overflow: "hidden" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ME.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me.name}</div>
                 <div style={{ fontSize: 11, color: "#64748b" }}>Employee</div>
               </div>
             </div>
@@ -774,7 +776,7 @@ export default function EmpLayout({ page, setPage, children }) {
                   outlineOffset: 2, transition: "outline .15s",
                 }}
               >
-                <Avatar initials={ME.initials} color={ME.color} size={38} />
+                <Avatar initials={me.initials} color={me.color} size={38} />
               </button>
 
               {/* Profile Dropdown */}
@@ -793,10 +795,10 @@ export default function EmpLayout({ page, setPage, children }) {
                     borderBottom: `1px solid ${T.border}`,
                     display: "flex", alignItems: "center", gap: 10,
                   }}>
-                    <Avatar initials={ME.initials} color={ME.color} size={38} />
+                    <Avatar initials={me.initials} color={me.color} size={38} />
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{ME.name}</div>
-                      <div style={{ fontSize: 11, color: T.muted }}>{ME.role}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{me.name}</div>
+                      <div style={{ fontSize: 11, color: T.muted }}>{me.role}</div>
                     </div>
                   </div>
 

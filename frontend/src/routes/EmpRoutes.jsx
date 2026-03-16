@@ -33,6 +33,7 @@
 
 // src/routes/EmpRoutes.jsx
 import { useState } from "react";
+import { EmployeeProvider } from "../context/EmployeeContext";
 import EmpLayout     from "../components/employee/EmpLayout";
 import EmpDashboard  from "../pages/employee/EmpDashboard";
 import EmpAttendance from "../pages/employee/EmpAttendance";
@@ -58,10 +59,12 @@ export default function EmpRoutes() {
   };
 
   return (
-    <EmpLayout page={page} setPage={setPage}>
-      <div className="page-enter" key={page}>
-        {pages[page] || pages.dashboard}
-      </div>
-    </EmpLayout>
+    <EmployeeProvider>
+      <EmpLayout page={page} setPage={setPage}>
+        <div className="page-enter" key={page}>
+          {pages[page] || pages.dashboard}
+        </div>
+      </EmpLayout>
+    </EmployeeProvider>
   );
 }

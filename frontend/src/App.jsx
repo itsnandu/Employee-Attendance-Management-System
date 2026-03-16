@@ -1,8 +1,10 @@
 // src/App.jsx
 import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import useAuth from './hooks/useAuth'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import AppRoutes from './routes/AppRoutes'
 import EmpRoutes from './routes/EmpRoutes'
 
@@ -23,11 +25,25 @@ function Inner() {
     </div>
   )
 
-  if (!user) return <Login />
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
+  }
   if (user.role === 'employee') return <EmpRoutes />
   return <AppRoutes />
 }
 
 export default function App() {
-  return <AuthProvider><Inner /></AuthProvider>
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Inner />
+      </BrowserRouter>
+    </AuthProvider>
+  )
 }

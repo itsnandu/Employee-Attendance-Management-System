@@ -1,16 +1,9 @@
 // src/pages/LeaveManagement.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CheckCircle, XCircle, Calendar, AlertTriangle } from 'lucide-react'
 import Button from '../components/common/Button'
 import { formatDate, getInitials } from '../utils/helpers'
-
-const MOCK_LEAVES = [
-  { id:1, name:'Sneha Patel',  type:'Sick Leave',     from:'2026-03-05', to:'2026-03-07', days:3, reason:'Fever and rest', status:'pending'  },
-  { id:2, name:'Rahul Verma',  type:'Casual Leave',   from:'2026-03-10', to:'2026-03-11', days:2, reason:'Personal work', status:'pending'  },
-  { id:3, name:'Priya Sharma', type:'Annual Leave',   from:'2026-03-20', to:'2026-03-25', days:6, reason:'Vacation',      status:'approved' },
-  { id:4, name:'Arjun Mehta',  type:'Work From Home', from:'2026-03-06', to:'2026-03-06', days:1, reason:'Home repairs',  status:'rejected' },
-  { id:5, name:'Kavya Nair',   type:'Sick Leave',     from:'2026-03-08', to:'2026-03-09', days:2, reason:'Doctor visit',  status:'pending'  },
-]
+import leaveService from '../services/leaveService'
 
 const STATUS_COLOR = {
   pending:  'var(--warning)',
@@ -211,24 +204,47 @@ function RejectModal({ leave, onConfirm, onCancel }) {
 
 // ── Main Page ──────────────────────────────────────────────────
 export default function LeaveManagement() {
-  const [leaves,   setLeaves]   = useState(MOCK_LEAVES)
-  const [filter,   setFilter]   = useState('all')
-  const [rejectTarget, setRejectTarget] = useState(null) // leave being rejected
+  const [leaves, setLeaves] = useState([])
+  const [filter, setFilter] = useState('all')
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  function handleApprove(id) {
-    setLeaves(l => l.map(x => x.id === id ? { ...x, status: 'approved' } : x))
+  useEffect(() => {
+    leaveService.getLeaves().then((data) => data && setLeaves(Array.isArray(data) ? data : []))
+  }, [])
+
+  async function handleApprove(id) {
+    setLoading(true)
+    try {
+      await leaveService.approveLeave(id)
+      setLeaves((l) => l.map((x) => (x.id === id ? { ...x, status: 'approved' } : x)))
+    } catch (err) {
+      alert(err.message || 'Failed to approve')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleRejectConfirm(reason) {
-    setLeaves(l => l.map(x => x.id === rejectTarget.id
-      ? { ...x, status: 'rejected', rejectionReason: reason }
-      : x
-    ))
-    setRejectTarget(null)
+  async function handleRejectConfirm(reason) {
+    if (!rejectTarget) return
+    setLoading(true)
+    try {
+      await leaveService.rejectLeave(rejectTarget.id)
+      setLeaves((l) =>
+        l.map((x) =>
+          x.id === rejectTarget.id ? { ...x, status: 'rejected', rejectionReason: reason } : x
+        )
+      )
+      setRejectTarget(null)
+    } catch (err) {
+      alert(err.message || 'Failed to reject')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const filtered = filter === 'all' ? leaves : leaves.filter(l => l.status === filter)
-  const pending  = leaves.filter(l => l.status === 'pending').length
+  const filtered = filter === 'all' ? leaves : leaves.filter((l) => l.status === filter)
+  const pending = leaves.filter((l) => l.status === 'pending').length
 
   return (
     <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

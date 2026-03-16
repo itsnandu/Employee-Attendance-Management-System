@@ -265,61 +265,256 @@
 // }
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 import authService from "../services/authService";
+import useAuth from "../hooks/useAuth";
+
+const accent = "#4f46e5";
+const accentDark = "#3730a3";
 
 function Login() {
-
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-
-    const data = {
-      email: email,
-      password: password
-    };
-
-    try {
-
-      const res = await authService.loginUser(data);
-
-      console.log(res);
-
-      localStorage.setItem("token", res.token);
-
-      alert("Login Successful");
-
-    } catch (error) {
-
-      console.log(error);
-      alert("Login Failed");
-
+    if (!email || !password) {
+      setErr("Email and password are required");
+      return;
     }
-
+    setLoading(true);
+    setErr("");
+    try {
+      const res = await authService.loginUser({ email, password });
+      if (res?.error) {
+        setErr(res.error);
+        return;
+      }
+      login(res.user, res.token);
+    } catch (error) {
+      const data = error.response?.data;
+      const msg =
+        (typeof data === "string" ? data : null) ||
+        data?.detail ||
+        data?.error ||
+        data?.message ||
+        error.message ||
+        "Login failed";
+      setErr(typeof msg === "object" ? JSON.stringify(msg) : msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        fontFamily: "'DM Sans', sans-serif",
+        background: "#f1f5f9",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          padding: "48px 40px",
+          background: "#fff",
+          borderRadius: 24,
+          boxShadow: "0 32px 80px rgba(0,0,0,.12)",
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontWeight: 800,
+            fontSize: 28,
+            color: "#0f172a",
+            margin: "0 0 6px",
+          }}
+        >
+          Welcome back
+        </h1>
+        <p style={{ color: "#94a3b8", fontSize: 14, margin: "0 0 28px" }}>
+          Sign in to your EAMS account
+        </p>
 
-      <h2>Login</h2>
+        <div style={{ marginBottom: 14 }}>
+          <label
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#64748b",
+              display: "block",
+              marginBottom: 6,
+              textTransform: "uppercase",
+              letterSpacing: ".4px",
+            }}
+          >
+            Email
+          </label>
+          <div style={{ position: "relative" }}>
+            <Mail
+              size={15}
+              style={{
+                position: "absolute",
+                left: 13,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#cbd5e1",
+              }}
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              placeholder="Enter your email"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "12px 14px 12px 40px",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: 10,
+                fontSize: 14,
+                color: "#0f172a",
+                outline: "none",
+                fontFamily: "'DM Sans', sans-serif",
+                background: "#f8fafc",
+              }}
+            />
+          </div>
+        </div>
 
-      <input
-        placeholder="Email"
-        onChange={(e)=>setEmail(e.target.value)}
-      />
+        <div style={{ marginBottom: 20 }}>
+          <label
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#64748b",
+              display: "block",
+              marginBottom: 6,
+              textTransform: "uppercase",
+              letterSpacing: ".4px",
+            }}
+          >
+            Password
+          </label>
+          <div style={{ position: "relative" }}>
+            <Lock
+              size={15}
+              style={{
+                position: "absolute",
+                left: 13,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#cbd5e1",
+              }}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              placeholder="••••••••"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "12px 14px 12px 40px",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: 10,
+                fontSize: 14,
+                color: "#0f172a",
+                outline: "none",
+                fontFamily: "'DM Sans', sans-serif",
+                background: "#f8fafc",
+              }}
+            />
+          </div>
+        </div>
 
-      <br/>
+        {err && (
+          <div
+            style={{
+              background: "#fee2e2",
+              border: "1px solid #fca5a5",
+              borderRadius: 9,
+              padding: "10px 14px",
+              fontSize: 13,
+              color: "#dc2626",
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>⚠️</span>
+            <span>{err}</span>
+          </div>
+        )}
 
-      <input
-        type="password"
-        placeholder="Password"
-        onChange={(e)=>setPassword(e.target.value)}
-      />
+        <p
+          style={{
+            marginBottom: 14,
+            textAlign: "center",
+            fontSize: 14,
+            color: "#64748b",
+          }}
+        >
+          Don't have an account?{" "}
+          <Link
+            to="/signup"
+            style={{
+              color: accent,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            Sign up
+          </Link>
+        </p>
 
-      <br/>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "13px 0",
+            border: "none",
+            borderRadius: 11,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontSize: 15,
+            fontWeight: 700,
+            fontFamily: "'DM Sans', sans-serif",
+            background: loading
+              ? "#e2e8f0"
+              : `linear-gradient(135deg,${accent},${accentDark})`,
+            color: loading ? "#94a3b8" : "#fff",
+            boxShadow: loading ? "none" : `0 6px 20px ${accent}40`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {loading ? "Signing in…" : <>Sign In <ArrowRight size={17} /></>}
+        </button>
 
-      <button onClick={handleLogin}>Login</button>
+        <p style={{ marginTop: 24, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>
+          © 2026 EAMS. All rights reserved.
+        </p>
+      </div>
 
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+      `}</style>
     </div>
   );
 }

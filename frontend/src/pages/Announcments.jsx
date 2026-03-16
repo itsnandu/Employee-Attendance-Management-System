@@ -1,5 +1,6 @@
-// src/pages/AdminAnnouncements.jsx
-import React, { useState, useMemo } from 'react'
+// src/pages/Announcments.jsx
+import React, { useState, useMemo, useEffect } from 'react'
+import announcementService from '../services/announcementService'
 
 const T = {
   primary: '#4f46e5', primaryLight: '#e0e7ff', accent: '#06b6d4',
@@ -16,17 +17,6 @@ const TAG_COLORS  = {
 }
 
 function tagColor(tag) { return TAG_COLORS[tag] || '#64748b' }
-
-const INITIAL = [
-  { id:1, title:'Q1 Performance Reviews',   date:'2026-03-01', tag:'HR',       msg:'Q1 appraisal cycle begins April 1st. Please complete self-assessments by March 28.' },
-  { id:2, title:'Office Closed – Holi',     date:'2026-03-14', tag:'Holiday',  msg:'Office will remain closed on March 14th for Holi. Enjoy the festival!' },
-  { id:3, title:'New WFH Policy',           date:'2026-02-20', tag:'Policy',   msg:'Updated WFH policy allows 2 days per week for senior staff. Refer to HR portal for details.' },
-  { id:4, title:'Health Checkup Camp',      date:'2026-02-10', tag:'Wellness', msg:'Free health checkup camp on Feb 15th in the cafeteria, 10am–2pm.' },
-  { id:5, title:'Diwali Bonus Announcement',date:'2026-10-20', tag:'HR',       msg:'All employees are eligible for a Diwali bonus equivalent to 1 months basic salary, credited by November 1st.' },
-  { id:6, title:'IT Infrastructure Upgrade',date:'2025-10-10', tag:'IT',       msg:'Scheduled maintenance on Oct 12th 11pm–2am. Systems will be briefly unavailable. Save your work beforehand.' },
-  { id:7, title:'Annual Sports Day',        date:'2025-09-28', tag:'Event',    msg:'Annual company sports day on October 5th at the corporate grounds. Register your team by Oct 1st.' },
-  { id:8, title:'Updated Code of Conduct',  date:'2025-09-15', tag:'Policy',   msg:'Please review the updated Code of Conduct on the HR portal. Acknowledgment required by Sep 30.' },
-]
 
 function fmtDate(ds) {
   return new Date(ds + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
@@ -106,7 +96,7 @@ function AnnouncementForm({ form, setForm }) {
 }
 
 export default function AdminAnnouncements() {
-  const [items, setItems]       = useState(INITIAL)
+  const [items, setItems]       = useState([])
   const [tagFilter, setTagFilter] = useState('All')
   const [search, setSearch]     = useState('')
   const [showAdd, setShowAdd]   = useState(false)
@@ -115,14 +105,18 @@ export default function AdminAnnouncements() {
   const [viewItem, setViewItem] = useState(null)
   const [form, setForm]         = useState({ title:'', date:'', tag:'HR', msg:'' })
   const [formError, setFormError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    announcementService.getAnnouncements().then((data) => data && setItems(Array.isArray(data) ? data : []))
+  }, [])
 
   const filtered = useMemo(() => {
-    let list = tagFilter === 'All' ? items : items.filter(i => i.tag === tagFilter)
-    if (search.trim()) list = list.filter(i =>
-      i.title.toLowerCase().includes(search.toLowerCase()) ||
-      i.msg.toLowerCase().includes(search.toLowerCase())
-    )
-    return [...list].sort((a,b) => b.date.localeCompare(a.date))
+    let list = tagFilter === 'All' ? items : items.filter(i => (i.tag || 'HR') === tagFilter)
+    const d = (i) => i.date || i.created_at?.slice(0,10) || ''
+    const txt = (i) => ((i.title||'') + ' ' + (i.msg||i.message||'')).toLowerCase()
+    if (search.trim()) list = list.filter(i => txt(i).includes(search.toLowerCase()))
+    return [...list].sort((a,b) => (d(b)||'').localeCompare(d(a)||''))
   }, [items, tagFilter, search])
 
   function openAdd()  { setForm({ title:'', date:'', tag:'HR', msg:'' }); setFormError(''); setShowAdd(true) }
@@ -137,24 +131,49 @@ export default function AdminAnnouncements() {
     return true
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!validate()) return
-    setItems(prev => [{ id:Date.now(), title:form.title.trim(), date:form.date, tag:form.tag, msg:form.msg.trim() }, ...prev])
-    closeAdd()
+    setLoading(true)
+    try {
+      await announcementService.createAnnouncement({ title: form.title.trim(), date: form.date, tag: form.tag, msg: form.msg.trim() })
+      const data = await announcementService.getAnnouncements()
+      setItems(Array.isArray(data) ? data : [])
+      closeAdd()
+    } catch (err) {
+      setFormError(err.message || 'Failed to create')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleEdit() {
+  async function handleEdit() {
     if (!validate()) return
-    setItems(prev => prev.map(i => i.id===editItem.id ? {...i, title:form.title.trim(), date:form.date, tag:form.tag, msg:form.msg.trim()} : i))
-    closeEdit()
+    setLoading(true)
+    try {
+      await announcementService.updateAnnouncement(editItem.id, { title: form.title.trim(), date: form.date, tag: form.tag, msg: form.msg.trim() })
+      setItems(prev => prev.map(i => i.id===editItem.id ? {...i, title:form.title.trim(), date:form.date, tag:form.tag, msg:form.msg.trim()} : i))
+      closeEdit()
+    } catch (err) {
+      setFormError(err.message || 'Failed to update')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleDelete() {
-    setItems(prev => prev.filter(i => i.id !== deleteId))
-    setDeleteId(null)
+  async function handleDelete() {
+    setLoading(true)
+    try {
+      await announcementService.deleteAnnouncement(deleteId)
+      setItems(prev => prev.filter(i => i.id !== deleteId))
+      setDeleteId(null)
+    } catch (err) {
+      setFormError(err.message || 'Failed to delete')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const allTags = ['All', ...TAG_OPTIONS.filter(t => items.some(i => i.tag === t))]
+  const allTags = ['All', ...TAG_OPTIONS.filter(t => items.some(i => (i.tag||'HR') === t))]
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20, fontFamily:"'DM Sans',sans-serif" }}>
@@ -176,7 +195,7 @@ export default function AdminAnnouncements() {
         </div>
         <button onClick={openAdd} style={{
           background:'#fff', color:'#0891b2', border:'none', borderRadius:10,
-          padding:'12px 24px', fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0, position:'relative',
+          padding:'12px 24px', fontSize:14, fontWeight:700, cursor:loading?'not-allowed':'pointer', flexShrink:0, position:'relative', opacity:loading?0.7:1,
         }}>+ New Announcement</button>
       </div>
 
@@ -184,7 +203,7 @@ export default function AdminAnnouncements() {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
         {[
           { label:'Total',    value:items.length,                                     icon:'📋', iconBg:'#ede9fe', iconColor:'#4f46e5' },
-          { label:'This Month', value:items.filter(i=>i.date.startsWith('2026-03')).length, icon:'📅', iconBg:'#dbeafe', iconColor:'#1d4ed8' },
+          { label:'This Month', value:items.filter(i=>(i.date||'').startsWith(new Date().toISOString().slice(0,7))).length, icon:'📅', iconBg:'#dbeafe', iconColor:'#1d4ed8' },
           { label:'HR',       value:items.filter(i=>i.tag==='HR').length,             icon:'👔', iconBg:'#d1fae5', iconColor:'#10b981' },
           { label:'Policy',   value:items.filter(i=>i.tag==='Policy').length,         icon:'📜', iconBg:'#fef3c7', iconColor:'#f59e0b' },
         ].map(c => (
@@ -234,7 +253,7 @@ export default function AdminAnnouncements() {
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
           {filtered.map(it => {
-            const c = tagColor(it.tag)
+            const c = tagColor(it.tag||'HR')
             return (
               <div key={it.id} style={{
                 background:T.surface, borderRadius:14,
@@ -250,14 +269,14 @@ export default function AdminAnnouncements() {
                 {/* Header */}
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
                   <div>
-                    <span style={{ padding:'3px 12px', borderRadius:99, fontSize:11, fontWeight:600, background:`${c}18`, color:c }}>{it.tag}</span>
+                    <span style={{ padding:'3px 12px', borderRadius:99, fontSize:11, fontWeight:600, background:`${c}18`, color:c }}>{it.tag||'HR'}</span>
                   </div>
-                  <span style={{ fontSize:12, color:T.muted, flexShrink:0 }}>{fmtDate(it.date)}</span>
+                  <span style={{ fontSize:12, color:T.muted, flexShrink:0 }}>{fmtDate(it.date||it.created_at?.slice(0,10)||'')}</span>
                 </div>
                 {/* Title + msg */}
                 <div>
                   <div style={{ fontWeight:700, fontSize:15, color:T.text, marginBottom:6, lineHeight:1.3 }}>{it.title}</div>
-                  <div style={{ fontSize:13, color:T.muted, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{it.msg}</div>
+                  <div style={{ fontSize:13, color:T.muted, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{it.msg||it.message}</div>
                 </div>
                 {/* Actions */}
                 <div style={{ display:'flex', gap:6, marginTop:'auto', paddingTop:8, borderTop:`1px solid ${T.border}` }}>
@@ -277,7 +296,7 @@ export default function AdminAnnouncements() {
         {formError && <div style={{ fontSize:13, color:T.danger, background:'#fff0f0', borderRadius:8, padding:'8px 12px', marginTop:8 }}>{formError}</div>}
         <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
           <button onClick={closeAdd} style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.border}`, background:T.surface2, color:T.muted, cursor:'pointer', fontWeight:600, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
-          <button onClick={handleAdd} style={{ padding:'9px 24px', borderRadius:10, border:'none', background:'#0891b2', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Publish</button>
+          <button onClick={handleAdd} disabled={loading} style={{ padding:'9px 24px', borderRadius:10, border:'none', background:'#0891b2', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>Publish</button>
         </div>
       </Modal>
 
@@ -296,11 +315,11 @@ export default function AdminAnnouncements() {
         {viewItem && (
           <div>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-              <span style={{ padding:'3px 12px', borderRadius:99, fontSize:12, fontWeight:600, background:`${tagColor(viewItem.tag)}18`, color:tagColor(viewItem.tag) }}>{viewItem.tag}</span>
-              <span style={{ fontSize:13, color:T.muted }}>{fmtDate(viewItem.date)}</span>
+              <span style={{ padding:'3px 12px', borderRadius:99, fontSize:12, fontWeight:600, background:`${tagColor(viewItem.tag||'HR')}18`, color:tagColor(viewItem.tag||'HR') }}>{viewItem.tag||'HR'}</span>
+              <span style={{ fontSize:13, color:T.muted }}>{fmtDate(viewItem.date||viewItem.created_at?.slice(0,10)||'')}</span>
             </div>
-            <div style={{ padding:20, borderRadius:12, background:T.surface2, borderLeft:`4px solid ${tagColor(viewItem.tag)}`, fontSize:14, color:T.text, lineHeight:1.8 }}>
-              {viewItem.msg}
+            <div style={{ padding:20, borderRadius:12, background:T.surface2, borderLeft:`4px solid ${tagColor(viewItem.tag||'HR')}`, fontSize:14, color:T.text, lineHeight:1.8 }}>
+              {viewItem.msg||viewItem.message}
             </div>
             <div style={{ marginTop:20, display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={() => { setViewItem(null); openEdit(viewItem) }} style={{ padding:'8px 20px', borderRadius:9, border:`1px solid ${T.border}`, background:T.surface, color:T.primary, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>Edit</button>

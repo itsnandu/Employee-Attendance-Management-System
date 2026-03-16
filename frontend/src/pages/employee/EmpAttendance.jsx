@@ -2,12 +2,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { T, Card, SectionTitle, StatusBadge } from "../../components/employee/EmpUI";
 import {
-  buildMonthAttendance, getWeekDates, getMyStatus, getHoliday,
+  buildMonthAttendanceFromAPI, getWeekDates, getHoliday,
   dateStr, MONTH_NAMES, DAY_LABELS,
 } from "../../utils/EmployeeData";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
+import attendanceService from "../../services/attendanceService";
+import holidayService from "../../services/holidayService";
 
-// ── Today's date string (fixed to app date for demo) ──────────
-const TODAY_DATE = new Date(2026, 2, 5); // March 5, 2026
+const TODAY_DATE = new Date();
 const TODAY_STR  = dateStr(TODAY_DATE);
 
 // ── Live Clock ────────────────────────────────────────────────
@@ -177,7 +179,7 @@ function calcTotalHours(cin, cout) {
 }
 
 // ── Mini Calendar ─────────────────────────────────────────────
-function MiniCalendar({ date, onChange, view }) {
+function MiniCalendar({ date, onChange, view, holidaysMap = {} }) {
   const [nav, setNav] = useState(new Date(date));
   const year = nav.getFullYear(), month = nav.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -212,7 +214,7 @@ function MiniCalendar({ date, onChange, view }) {
           const inWeek  = view==="weekly" && selWeek.includes(ds);
           const inMonth = view==="monthly" && isSelMonth;
           const active  = isSel || inWeek || inMonth;
-          const holiday = getHoliday(ds);
+          const holiday = getHoliday(ds, holidaysMap);
           return (
             <button key={i} onClick={()=>onChange(new Date(year,month,day))} style={{
               border:"none", cursor:"pointer", padding:"5px 0", borderRadius:7,
@@ -258,14 +260,19 @@ function SummaryCards({ present, absent, late }) {
 }
 
 // ── Daily View ────────────────────────────────────────────────
-function DailyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime, onCheckIn, onCheckOut }) {
+function DailyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime, onCheckIn, onCheckOut, monthData, rec }) {
   const ds  = dateStr(date);
   const isToday = ds === TODAY_STR;
 
-  const data = buildMonthAttendance(date.getFullYear(), date.getMonth());
-  const rec  = data.find(d => d.day === date.getDate());
-
-  if (!rec || rec.type === "weekend") {
+  if (!rec) {
+    return (
+      <Card style={{ padding:40, textAlign:"center" }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+        <div style={{ fontWeight:700, fontSize:16 }}>Loading...</div>
+      </Card>
+    );
+  }
+  if (rec.type === "weekend") {
     return (
       <Card style={{ padding:40, textAlign:"center" }}>
         <div style={{ fontSize:40, marginBottom:12 }}>🏖️</div>
@@ -300,8 +307,7 @@ function DailyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime, onC
     );
   }
 
-  const month = buildMonthAttendance(date.getFullYear(), date.getMonth());
-  const wkdays  = month.filter(d=>d.type!=="weekend"&&d.type!=="future"&&d.type!=="holiday");
+  const wkdays  = (monthData || []).filter(d=>d.type!=="weekend"&&d.type!=="future"&&d.type!=="holiday");
   const present = wkdays.filter(d=>d.type==="present").length;
   const absent  = wkdays.filter(d=>d.type==="absent").length;
   const late    = wkdays.filter(d=>d.type==="late").length;
@@ -352,23 +358,26 @@ function DailyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime, onC
 }
 
 // ── Weekly View ───────────────────────────────────────────────
-function WeeklyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime }) {
+function WeeklyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime, attByDate, holidaysMap }) {
   const weekDates = useMemo(()=>getWeekDates(date),[date]);
   const days = useMemo(()=>weekDates.map(d=>{
     const ds = dateStr(d);
     const dow = d.getDay();
     if (dow===0||dow===6) return { date:d, type:"weekend" };
-    const holiday = getHoliday(ds);
-    if (holiday) return { date:d, type:"holiday", holidayName:holiday.name };
+    const holiday = getHoliday(ds, holidaysMap);
+    if (holiday) return { date:d, type:"holiday", holidayName:holiday.name || holiday.title };
     if (d > TODAY_DATE) return { date:d, type:"future" };
     if (ds === TODAY_STR) {
       const st = checkedOut ? "present" : checkedIn ? "present" : "absent";
       return { date:d, type:st, checkIn:checkInTime||null, checkOut:checkOutTime||null,
         hours: checkedOut ? calcTotalHours(checkInTime, checkOutTime) : null };
     }
-    const st = getMyStatus(ds);
-    return { date:d, type:st, checkIn:st==="absent"?null:st==="late"?"09:45":"09:00", checkOut:st==="absent"?null:"18:10", hours:st==="absent"?null:"9.2h" };
-  }),[weekDates, checkedIn, checkInTime, checkedOut, checkOutTime]);
+    const rec = attByDate[ds];
+    if (!rec) return { date:d, type:"absent", checkIn:null, checkOut:null, hours:null };
+    const cin = rec.check_in || rec.check_in_time;
+    const cout = rec.check_out || rec.check_out_time;
+    return { date:d, type:(rec.status||"present").toLowerCase().includes("late")?"late":"present", checkIn:cin?String(cin).slice(0,5):null, checkOut:cout?String(cout).slice(0,5):null, hours:cin&&cout?"9.2h":null };
+  }),[weekDates, checkedIn, checkInTime, checkedOut, checkOutTime, attByDate, holidaysMap]);
 
   const workdays = days.filter(d=>d.type!=="weekend"&&d.type!=="future"&&d.type!=="holiday");
   const present  = workdays.filter(d=>d.type==="present").length;
@@ -416,9 +425,8 @@ function WeeklyView({ date, checkedIn, checkInTime, checkedOut, checkOutTime }) 
 }
 
 // ── Monthly View ──────────────────────────────────────────────
-function MonthlyView({ date, checkedIn, checkedOut }) {
-  const year = date.getFullYear(), month = date.getMonth();
-  const data = useMemo(()=>buildMonthAttendance(year, month),[year, month]);
+function MonthlyView({ date, checkedIn, checkedOut, monthData }) {
+  const data = monthData || [];
 
   const firstDay = new Date(year, month, 1);
   const startOffset = (firstDay.getDay() + 6) % 7;
@@ -500,10 +508,12 @@ function MonthlyView({ date, checkedIn, checkedOut }) {
 
 // ── Main Export ───────────────────────────────────────────────
 export default function EmpAttendance() {
+  const { employeeId } = useCurrentEmployee();
   const [view, setView] = useState("daily");
   const [date, setDate] = useState(new Date(TODAY_DATE));
+  const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
 
-  // Check-in / check-out state
   const [checkedIn,    setCheckedIn]    = useState(false);
   const [checkInTime,  setCheckInTime]  = useState(null);
   const [checkedOut,   setCheckedOut]   = useState(false);
@@ -512,18 +522,68 @@ export default function EmpAttendance() {
 
   const now = useLiveClock();
 
-  function handleCheckIn() {
+  useEffect(() => {
+    attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
+    holidayService.getHolidays().then((d) => setHolidays(Array.isArray(d) ? d : []));
+  }, []);
+
+  const holidaysMap = useMemo(() => {
+    const m = {};
+    holidays.forEach(h => { m[h.date || h.holiday_date || ""] = { name: h.name || h.title, type: h.type || "public" }; });
+    return m;
+  }, [holidays]);
+
+  const myAttendance = useMemo(() =>
+    employeeId ? attendance.filter(a => a.employee_id === employeeId) : attendance,
+  [attendance, employeeId]);
+
+  const monthData = useMemo(() =>
+    buildMonthAttendanceFromAPI(date.getFullYear(), date.getMonth(), myAttendance, holidaysMap),
+  [date, myAttendance, holidaysMap]);
+
+  const rec = monthData.find(d => d.day === date.getDate());
+  const attByDate = useMemo(() => {
+    const m = {};
+    myAttendance.forEach(a => { m[(a.date||"").slice(0,10)] = a; });
+    return m;
+  }, [myAttendance]);
+
+  const todayAtt = myAttendance.find(a => (a.date||"").slice(0,10) === TODAY_STR);
+  useEffect(() => {
+    if (todayAtt) {
+      setCheckedIn(true);
+      setCheckInTime(todayAtt.check_in || todayAtt.check_in_time || null);
+      setCheckedOut(!!(todayAtt.check_out || todayAtt.check_out_time));
+      setCheckOutTime(todayAtt.check_out || todayAtt.check_out_time || null);
+    }
+  }, [todayAtt?.id, todayAtt?.check_in_time, todayAtt?.check_out_time]);
+
+  async function handleCheckIn() {
+    if (!employeeId) return;
     const t = formatTime(now);
-    setCheckedIn(true);
-    setCheckInTime(t);
-    showToast("✓ Checked in at " + t, "success");
+    try {
+      await attendanceService.checkIn({ employee_id: employeeId, date: TODAY_STR, check_in: t });
+      setCheckedIn(true);
+      setCheckInTime(t);
+      showToast("✓ Checked in at " + t, "success");
+      attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
+    } catch (err) {
+      showToast(err.message || "Check-in failed", "error");
+    }
   }
 
-  function handleCheckOut() {
+  async function handleCheckOut() {
+    if (!employeeId) return;
     const t = formatTime(now);
-    setCheckedOut(true);
-    setCheckOutTime(t);
-    showToast("↩ Checked out at " + t, "info");
+    try {
+      await attendanceService.checkOut({ employee_id: employeeId, date: TODAY_STR, check_out: t });
+      setCheckedOut(true);
+      setCheckOutTime(t);
+      showToast("↩ Checked out at " + t, "info");
+      attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
+    } catch (err) {
+      showToast(err.message || "Check-out failed", "error");
+    }
   }
 
   function showToast(msg, type) {
@@ -565,7 +625,7 @@ export default function EmpAttendance() {
 
       {/* Mini calendar */}
       <div style={{ width:220, flexShrink:0 }}>
-        <MiniCalendar date={date} onChange={setDate} view={view}/>
+        <MiniCalendar date={date} onChange={setDate} view={view} holidaysMap={holidaysMap}/>
       </div>
 
       {/* Content */}
@@ -593,9 +653,9 @@ export default function EmpAttendance() {
           </div>
         </div>
 
-        {view==="daily"   && <DailyView   date={date} checkedIn={checkedIn} checkInTime={checkInTime} checkedOut={checkedOut} checkOutTime={checkOutTime} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut}/>}
-        {view==="weekly"  && <WeeklyView  date={date} checkedIn={checkedIn} checkInTime={checkInTime} checkedOut={checkedOut} checkOutTime={checkOutTime}/>}
-        {view==="monthly" && <MonthlyView date={date} checkedIn={checkedIn} checkedOut={checkedOut}/>}
+        {view==="daily"   && <DailyView   date={date} checkedIn={checkedIn} checkInTime={checkInTime} checkedOut={checkedOut} checkOutTime={checkOutTime} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} monthData={monthData} rec={rec}/>}
+        {view==="weekly"  && <WeeklyView  date={date} checkedIn={checkedIn} checkInTime={checkInTime} checkedOut={checkedOut} checkOutTime={checkOutTime} attByDate={attByDate} holidaysMap={holidaysMap}/>}
+        {view==="monthly" && <MonthlyView date={date} checkedIn={checkedIn} checkedOut={checkedOut} monthData={monthData}/>}
       </div>
     </div>
   );

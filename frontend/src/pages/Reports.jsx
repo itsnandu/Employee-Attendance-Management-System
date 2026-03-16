@@ -1,27 +1,60 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Download, BarChart3, TrendingUp } from 'lucide-react'
 import Button from '../components/common/Button'
 import { currency } from '../utils/helpers'
+import reportService from '../services/reportService'
+import employeeService from '../services/employeeService'
 
-const ATTENDANCE = [
-  { month:'Oct', present:85, absent:15 },
-  { month:'Nov', present:88, absent:12 },
-  { month:'Dec', present:79, absent:21 },
-  { month:'Jan', present:91, absent:9  },
-  { month:'Feb', present:87, absent:13 },
-  { month:'Mar', present:93, absent:7  },
-]
-
-const PAYROLL = [
-  { dept:'Engineering', headcount:3, avgSal:90667, total:272000 },
-  { dept:'HR',          headcount:1, avgSal:75000, total:75000  },
-  { dept:'Design',      headcount:1, avgSal:70000, total:70000  },
-  { dept:'Analytics',   headcount:1, avgSal:88000, total:88000  },
-]
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 export default function Reports() {
   const [period, setPeriod] = useState('monthly')
-  const maxVal = Math.max(...ATTENDANCE.map(a => a.present))
+  const [attendance, setAttendance] = useState([])
+  const [payroll, setPayroll] = useState([])
+  const [employees, setEmployees] = useState([])
+
+  useEffect(() => {
+    reportService.getAttendanceReport().then((a) => a && setAttendance(Array.isArray(a) ? a : []))
+    reportService.getPayrollReport().then((p) => p && setPayroll(Array.isArray(p) ? p : []))
+    employeeService.getAll().then((e) => e && setEmployees(Array.isArray(e) ? e : []))
+  }, [])
+
+  // Aggregate attendance by month
+  const attendanceByMonth = MONTHS.map((m, i) => {
+    const monthStr = `${new Date().getFullYear()}-${String(i + 1).padStart(2, '0')}`
+    const records = attendance.filter((a) => a.date && a.date.startsWith(monthStr))
+    const present = records.filter((a) => a.status && a.status.toLowerCase() !== 'absent').length
+    const total = employees.length || 1
+    const daysInMonth = new Date(new Date().getFullYear(), i + 1, 0).getDate()
+    const expected = total * Math.min(daysInMonth, new Date().getDate())
+    const absent = Math.max(0, (total * 20) - present)
+    return { month: m, present: present || 0, absent: absent || 0 }
+  }).slice(-6)
+
+  // Aggregate payroll by department
+  const payrollByDept = Object.entries(
+    (employees || []).reduce((acc, emp) => {
+      const dept = emp.department || 'Other'
+      if (!acc[dept]) acc[dept] = { headcount: 0, total: 0 }
+      acc[dept].headcount++
+      const sal = payroll.find((p) => p.employee_id === emp.id)?.salary || emp.salary || 0
+      acc[dept].total += Number(sal)
+      return acc
+    }, {})
+  ).map(([dept, v]) => ({
+    dept,
+    headcount: v.headcount,
+    avgSal: v.headcount ? Math.round(v.total / v.headcount) : 0,
+    total: v.total,
+  }))
+
+  const ATTENDANCE = attendanceByMonth.length ? attendanceByMonth : [
+    { month: 'Jan', present: 0, absent: 0 },
+    { month: 'Feb', present: 0, absent: 0 },
+    { month: 'Mar', present: 0, absent: 0 },
+  ]
+  const PAYROLL = payrollByDept.length ? payrollByDept : [{ dept: 'No data', headcount: 0, avgSal: 0, total: 0 }]
+  const maxVal = Math.max(...ATTENDANCE.map((a) => a.present), 1)
 
   return (
     <div className="page-enter" style={{ display:'flex', flexDirection:'column', gap:20 }}>

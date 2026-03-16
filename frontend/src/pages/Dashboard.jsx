@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Users, Clock, UserCheck, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
 import attendanceService from '../services/attendanceService'
 import employeeService from '../services/employeeService'
-// import { checkIn, checkOut, getAttendance } from "../services/attendanceService";
-import { currency, formatDate } from '../utils/helpers'
+import leaveService from '../services/leaveService'
 
 const Card = ({ icon, label, value, sub, color='var(--primary)' }) => (
   <div style={{
@@ -29,19 +28,34 @@ export default function Dashboard({ setPage }) {
   const { user } = useAuth()
   const [stats, setStats] = useState({ present:0, absent:0, late:0, total:0 })
   const [employees, setEmployees] = useState([])
+  const [attendance, setAttendance] = useState([])
+  const [leaves, setLeaves] = useState([])
 
   useEffect(() => {
-    attendanceService.getStats().then(setStats)
-    employeeService.getAll().then(setEmployees)
-  }, [])
+    attendanceService.getStats().then((s) => s && setStats(s));
+    employeeService.getAll().then((e) => e && setEmployees(Array.isArray(e) ? e : []));
+    attendanceService.getAttendance().then((a) => a && setAttendance(Array.isArray(a) ? a : []));
+    leaveService.getLeaves().then((l) => l && setLeaves(Array.isArray(l) ? l : []));
+  }, []);
 
-  const activity = [
-    { msg:'Priya Sharma checked in at 09:02 AM', time:'2m ago', type:'success' },
-    { msg:'Rahul Verma marked late arrival',      time:'18m ago', type:'warning' },
-    { msg:'Sneha Patel applied for leave',        time:'1h ago',  type:'info'    },
-    { msg:'New employee Arjun Mehta onboarded',   time:'3h ago',  type:'success' },
-    { msg:'Kavya Nair marked absent',             time:'5h ago',  type:'danger'  },
-  ]
+  const empMap = useMemo(() => {
+    const m = {};
+    employees.forEach(e => { m[e.id] = e.name || [e.first_name, e.last_name].filter(Boolean).join(' ') || 'Employee'; });
+    return m;
+  }, [employees]);
+
+  const departments = [...new Set(employees.map(e => e.department).filter(Boolean))].sort()
+  const activity = useMemo(() => {
+    const items = [];
+    const today = new Date().toISOString().slice(0, 10);
+    attendance.filter(a => (a.date || '').startsWith(today.slice(0, 7))).slice(0, 5).forEach(a => {
+      items.push({ msg: `${empMap[a.employee_id] || 'Someone'} checked in at ${(a.check_in || a.check_in_time || '—').slice(0, 5)}`, time: 'Today', type: 'success' });
+    });
+    leaves.filter(l => l.status === 'pending').slice(0, 3).forEach(l => {
+      items.push({ msg: `${l.name || empMap[l.employee_id]} applied for ${l.leave_type || 'leave'}`, time: 'Pending', type: 'info' });
+    });
+    return items.slice(0, 5).length ? items.slice(0, 5) : [{ msg: 'No recent activity', time: '—', type: 'info' }];
+  }, [attendance, leaves, empMap])
 
   return (
     <div className="page-enter" style={{ display:'flex', flexDirection:'column', gap:24 }}>
@@ -54,7 +68,7 @@ export default function Dashboard({ setPage }) {
       }}>
         <div>
           <h2 style={{ fontFamily:'Syne,sans-serif', fontSize:26, fontWeight:800, marginBottom:6 }}>
-            Good {new Date().getHours()<12?'Morning':new Date().getHours()<17?'Afternoon':'Evening'}, {user?.name?.split(' ')[0]} 👋
+            Good {new Date().getHours()<12?'Morning':new Date().getHours()<17?'Afternoon':'Evening'}, {user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Admin'} 👋
           </h2>
           <p style={{ opacity:.8, fontSize:14 }}>Here's what's happening across your organization today.</p>
         </div>
@@ -76,7 +90,7 @@ export default function Dashboard({ setPage }) {
         {/* Dept breakdown */}
         <div style={{ background:'var(--surface)', borderRadius:16, padding:24, boxShadow:'var(--shadow)', border:'1px solid var(--border)' }}>
           <h3 style={{ fontSize:16, fontWeight:700, marginBottom:20 }}>Department Overview</h3>
-          {['Engineering','HR','Design','Analytics'].map(dept => {
+          {(departments.length ? departments : ['Engineering','HR','Design','Analytics']).map(dept => {
             const count = employees.filter(e=>e.department===dept).length
             const pct = employees.length ? Math.round(count/employees.length*100) : 0
             return (

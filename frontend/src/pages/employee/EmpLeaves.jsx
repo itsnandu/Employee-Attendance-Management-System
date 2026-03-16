@@ -1,10 +1,20 @@
 // src/pages/employee/EmpLeaves.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, Card, SectionTitle, StatusBadge, Btn, Modal, Input, Select } from "../../components/employee/EmpUI";
-import { LEAVE_BALANCE, LEAVE_HISTORY } from "../../utils/EmployeeData";
+import leaveService from "../../services/leaveService";
+import useCurrentEmployee from "../../hooks/useCurrentEmployee";
+
+const LEAVE_TYPES = ["Casual Leave", "Sick Leave", "Earned Leave", "Comp Off"];
+const LEAVE_BALANCE_DEFAULTS = [
+  { type: "Casual Leave",  total: 12, used: 0, color: "#4f46e5" },
+  { type: "Sick Leave",    total: 10, used: 0, color: "#06b6d4" },
+  { type: "Earned Leave",  total: 15, used: 0, color: "#10b981" },
+  { type: "Comp Off",      total: 4,  used: 0, color: "#f59e0b" },
+];
 
 export default function EmpLeaves() {
-  const [history, setHistory] = useState(LEAVE_HISTORY);
+  const { employeeId, loading: empLoading } = useCurrentEmployee();
+  const [history, setHistory] = useState([]);
   const [modal,   setModal]   = useState(false);
   const [filter,  setFilter]  = useState("all");
   const [form,    setForm]    = useState({
@@ -12,12 +22,24 @@ export default function EmpLeaves() {
   });
   const [errors, setErrors] = useState({});
 
-  const leaveTypes = [
-    { value:"Casual Leave",  label:"Casual Leave"  },
-    { value:"Sick Leave",    label:"Sick Leave"    },
-    { value:"Earned Leave",  label:"Earned Leave"  },
-    { value:"Comp Off",      label:"Comp Off"      },
-  ];
+  useEffect(() => {
+    leaveService.getLeaves().then((data) => {
+      const list = Array.isArray(data) ? data : [];
+      const mine = employeeId ? list.filter(l => l.employee_id === employeeId) : list;
+      setHistory(mine.map(l => ({
+        id: l.id, type: l.leave_type || l.type, employee_id: l.employee_id,
+        from: l.from || l.start_date, to: l.to || l.end_date,
+        days: l.days || 1, status: (l.status || "pending").toLowerCase(), reason: l.reason || "",
+      })));
+    });
+  }, [employeeId]);
+
+  const leaveTypes = LEAVE_TYPES.map(t => ({ value: t, label: t }));
+
+  const LEAVE_BALANCE = LEAVE_BALANCE_DEFAULTS.map(lb => {
+    const used = history.filter(h => h.type === lb.type && h.status === "approved").reduce((a, h) => a + (h.days || 0), 0);
+    return { ...lb, used };
+  });
 
   function validate() {
     const e = {};
@@ -35,23 +57,46 @@ export default function EmpLeaves() {
     return Math.max(0, diff);
   }
 
-  function submit() {
+  async function submit() {
     if (!validate()) return;
+    if (!employeeId) {
+      setErrors({ reason: "Your employee profile could not be loaded. Please refresh or contact HR." });
+      return;
+    }
     const days = calcDays(form.from, form.to);
-    setHistory(prev => [{
-      id: Date.now(), type: form.type,
-      from: form.from, to: form.to,
-      days, status: "pending", reason: form.reason,
-    }, ...prev]);
-    setForm({ type:"Casual Leave", from:"", to:"", reason:"" });
-    setErrors({});
-    setModal(false);
+    try {
+      await leaveService.applyLeave({
+        employee_id: employeeId,
+        leave_type: form.type,
+        start_date: form.from,
+        end_date: form.to,
+        reason: form.reason,
+      });
+      setHistory(prev => [{
+        id: Date.now(), type: form.type, employee_id: employeeId,
+        from: form.from, to: form.to, days, status: "pending", reason: form.reason,
+      }, ...prev]);
+      setForm({ type: "Casual Leave", from: "", to: "", reason: "" });
+      setErrors({});
+      setModal(false);
+    } catch (err) {
+      setErrors({ reason: err.message || "Failed to apply" });
+    }
   }
 
   const filtered = filter === "all" ? history : history.filter(l=>l.status===filter);
+  const cannotSubmit = !employeeId || empLoading;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+      {!empLoading && !employeeId && (
+        <div style={{
+          background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 12,
+          padding: "14px 20px", color: "#92400e", fontSize: 14, fontWeight: 600,
+        }}>
+          ⚠️ Your employee profile could not be loaded. Please refresh the page or contact HR to link your account.
+        </div>
+      )}
 
       {/* Balance cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16 }}>
@@ -92,7 +137,9 @@ export default function EmpLeaves() {
                 }}>{f}</button>
               ))}
             </div>
-            <Btn onClick={()=>setModal(true)}>+ Apply Leave</Btn>
+            <Btn onClick={()=>setModal(true)} disabled={cannotSubmit}>
+              {empLoading ? "Loading..." : "+ Apply Leave"}
+            </Btn>
           </div>
         </div>
 
