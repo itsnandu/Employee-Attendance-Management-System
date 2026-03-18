@@ -9,7 +9,7 @@ from app.database import Base, DATABASE_URL
 
 # Parse DATABASE_URL: mysql+pymysql://user:pass@host/dbname
 parsed = urlparse(DATABASE_URL.replace("mysql+pymysql://", "mysql://"))
-db_name = parsed.path.lstrip("/") or "attendance_db"
+db_name = parsed.path.lstrip("/") or "attendance"
 db_user = parsed.username or "root"
 db_pass = parsed.password or ""
 db_host = parsed.hostname or "localhost"

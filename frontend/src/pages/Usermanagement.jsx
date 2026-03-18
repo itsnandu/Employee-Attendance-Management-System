@@ -422,17 +422,22 @@ function Toast({ message, type, onClose }) {
 
 function toUserFormat(emp) {
   const name = emp.name || [emp.first_name, emp.last_name].filter(Boolean).join(" ") || "Unknown";
+
+  const rawRole = emp.role || emp.position || "employee";
+  const role = String(rawRole).toLowerCase().trim();
+
   const initials = name.trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+
   return {
     id: emp.id,
     name,
     email: emp.email || "",
     phone: emp.phone || emp.phone_number || "",
-    role: emp.role || emp.position || "employee",
+    role,
     dept: emp.dept || emp.department || "",
-    status: emp.status || "active",
+    status: (emp.status || "active").toLowerCase(),
     initials,
-    color: ROLE_META[emp.role || emp.position]?.color || "#4f46e5",
+    color: ROLE_META[role]?.color || "#4f46e5",
     joined: emp.joined || emp.joining_date || new Date().toISOString().slice(0, 10),
     lastLogin: "—",
   };
@@ -466,6 +471,7 @@ export default function UserManagement() {
     const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
                         u.email.toLowerCase().includes(search.toLowerCase()) ||
                         u.dept.toLowerCase().includes(search.toLowerCase());
+    
     const matchRole   = roleFilter   === "all" || u.role   === roleFilter;
     const matchStatus = statusFilter === "all" || u.status === statusFilter;
     return matchSearch && matchRole && matchStatus;
@@ -717,7 +723,7 @@ export default function UserManagement() {
             </span>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {[...new Set(users.map(u => u.role))].map(r => {
-                const m = ROLE_META[r];
+                const m = ROLE_META[r] || ROLE_META.employee;
                 const count = filtered.filter(u => u.role === r).length;
                 return count > 0 ? (
                   <span key={r} style={{ fontSize:11, fontWeight:700, color:m.color, background:m.bg, padding:"2px 8px", borderRadius:99 }}>

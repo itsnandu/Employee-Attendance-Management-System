@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
@@ -13,14 +12,23 @@ function Inner() {
 
   if (loading) return (
     <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       background: 'var(--bg)',
+      flexDirection: 'column',
+      gap: '20px',
     }}>
       <div style={{
-        width: 40, height: 40, border: '3px solid var(--border)',
-        borderTopColor: 'var(--primary)', borderRadius: '50%',
+        width: 40,
+        height: 40,
+        border: '3px solid var(--border)',
+        borderTopColor: 'var(--primary)',
+        borderRadius: '50%',
         animation: 'spin .7s linear infinite',
       }}/>
+      <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -34,6 +42,7 @@ function Inner() {
       </Routes>
     )
   }
+
   if (user.role === 'employee') return <EmpRoutes />
   return <AppRoutes />
 }

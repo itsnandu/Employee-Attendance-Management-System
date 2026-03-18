@@ -40,3 +40,43 @@
 .read-the-docs {
   color: #888;
 }
+
+/* 🔥 FLEX WRAP FIX */
+.flex-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 🔥 GRID RESPONSIVE */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+/* 🔥 TABLE SCROLL */
+.table-container {
+  overflow-x: auto;
+}
+
+.table-inner {
+  min-width: 700px;
+}
+
+/* 🔥 CARD STYLE */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+/* 🔥 MOBILE STACK */
+@media (max-width: 768px) {
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+
