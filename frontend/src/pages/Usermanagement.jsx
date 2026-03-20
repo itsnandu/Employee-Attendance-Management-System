@@ -192,7 +192,7 @@ function UserModal({ user, onClose, onSave, departments }) {
               {isEdit ? <Edit2 size={18} color="#4f46e5"/> : <Plus size={18} color="#10b981"/>}
             </div>
             <div>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:"#0f172a" }}>
+              <div style={{ fontWeight:800, fontSize:17, color:"#0f172a" }}>
                 {isEdit ? "Edit User" : "Add New User"}
               </div>
               <div style={{ fontSize:12, color:"#94a3b8" }}>
@@ -344,7 +344,7 @@ function ResetPasswordModal({ user, onClose }) {
         </div>
         {!done ? (
           <>
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:800, color:"#0f172a", margin:"0 0 8px" }}>Reset Password</h3>
+            <h3 style={{ fontSize:18, fontWeight:800, color:"#0f172a", margin:"0 0 8px" }}>Reset Password</h3>
             <p style={{ color:"#64748b", fontSize:14, margin:"0 0 24px" }}>
               Send a password reset link to <strong>{user.email}</strong>?
             </p>
@@ -358,7 +358,7 @@ function ResetPasswordModal({ user, onClose }) {
             <div style={{ width:48, height:48, borderRadius:"50%", background:"#d1fae5", margin:"0 auto 12px", display:"flex", alignItems:"center", justifyContent:"center" }}>
               <Check size={22} color="#10b981"/>
             </div>
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:800, color:"#10b981", margin:"0 0 8px" }}>Link Sent!</h3>
+            <h3 style={{ fontSize:18, fontWeight:800, color:"#10b981", margin:"0 0 8px" }}>Link Sent!</h3>
             <p style={{ color:"#64748b", fontSize:14, margin:"0 0 20px" }}>Password reset link sent to {user.email}</p>
             <button onClick={onClose} style={{ width:"100%", padding:"10px 0", borderRadius:9, border:"none", background:"#d1fae5", color:"#10b981", cursor:"pointer", fontSize:13, fontWeight:700, fontFamily:"'DM Sans',sans-serif" }}>Done</button>
           </>
@@ -384,7 +384,7 @@ function DeleteModal({ user, onClose, onConfirm }) {
         <div style={{ width:56, height:56, borderRadius:16, background:"#fee2e2", margin:"0 auto 16px", display:"flex", alignItems:"center", justifyContent:"center" }}>
           <Trash2 size={24} color="#ef4444"/>
         </div>
-        <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:800, color:"#0f172a", margin:"0 0 8px" }}>Delete User</h3>
+        <h3 style={{ fontSize:18, fontWeight:800, color:"#0f172a", margin:"0 0 8px" }}>Delete User</h3>
         <p style={{ color:"#64748b", fontSize:14, margin:"0 0 6px" }}>
           Are you sure you want to delete <strong>{user.name}</strong>?
         </p>
@@ -526,7 +526,7 @@ export default function UserManagement() {
       {/* ── Header ── */}
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24, flexWrap:"wrap", gap:12 }}>
         <div>
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:26, margin:"0 0 4px", letterSpacing:"-.3px" }}></h1>
+          <h1 style={{ fontWeight:800, fontSize:26, margin:"0 0 4px", letterSpacing:"-.3px" }}></h1>
           <p style={{ color:"#94a3b8", fontSize:14, margin:0 }}>Manage system users, roles and access permissions</p>
         </div>
         <button onClick={() => setModal({ type:"add" })} style={{

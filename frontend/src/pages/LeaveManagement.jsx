@@ -66,7 +66,7 @@ function RejectModal({ leave, onConfirm, onCancel }) {
             <AlertTriangle size={22} color="#fff" />
           </div>
           <div>
-            <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 4 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 4 }}>
               Reject Leave Request
             </div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', lineHeight: 1.5 }}>
@@ -260,7 +260,7 @@ export default function LeaveManagement() {
             background: 'var(--surface)', borderRadius: 14, padding: '20px',
             border: `1px solid ${s.color}30`, textAlign: 'center',
           }}>
-            <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'Syne,sans-serif', color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: s.color }}>{s.value}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{s.label} Requests</div>
           </div>
         ))}

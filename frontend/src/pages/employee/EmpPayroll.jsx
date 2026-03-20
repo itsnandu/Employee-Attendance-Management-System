@@ -69,7 +69,7 @@ export default function EmpPayroll() {
         <div style={{ position:"absolute", right:-30, top:-30, width:180, height:180, borderRadius:"50%", background:"rgba(255,255,255,.06)" }}/>
         <div>
           <div style={{ fontSize:13, color:"rgba(255,255,255,.65)", marginBottom:4, letterSpacing:".5px" }}>ANNUAL CTC</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:36, lineHeight:1 }}>{fmtCurrency(ctc)}</div>
+          <div style={{ fontWeight:800, fontSize:36, lineHeight:1 }}>{fmtCurrency(ctc)}</div>
           <div style={{ fontSize:13, color:"rgba(255,255,255,.7)", marginTop:6 }}>{employee?.role || employee?.position || "—"} · {employee?.department || "—"}</div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, position:"relative" }}>
@@ -132,7 +132,7 @@ export default function EmpPayroll() {
             <div style={{ background:`linear-gradient(90deg,${T.primary},${T.accent})`, borderRadius:12, padding:"16px 20px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ fontSize:12, color:"rgba(255,255,255,.7)", marginBottom:2 }}>NET PAY</div>
-                <div style={{ fontSize:28, fontWeight:800, color:"#fff", fontFamily:"'Syne',sans-serif" }}>{selected.net}</div>
+                <div style={{ fontSize:28, fontWeight:800, color:"#fff" }}>{selected.net}</div>
               </div>
               <StatusBadge status={selected.status}/>
             </div>

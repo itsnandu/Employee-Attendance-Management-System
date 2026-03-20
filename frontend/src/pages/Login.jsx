@@ -333,7 +333,6 @@ function Login() {
       >
         <h1
           style={{
-            fontFamily: "'Syne', sans-serif",
             fontWeight: 800,
             fontSize: 28,
             color: "#0f172a",

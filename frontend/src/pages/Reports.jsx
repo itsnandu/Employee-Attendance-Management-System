@@ -424,7 +424,7 @@ export default function Reports() {
             <div style={{ fontSize: 11, fontWeight: 700, color: s.color, letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 6 }}>
               {s.label}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: s.color, fontFamily: 'Syne, sans-serif' }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>
               {s.value}
             </div>
           </div>
@@ -473,7 +473,7 @@ export default function Reports() {
       }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: 16, fontWeight: 700 }}>Payroll Summary by Department</h3>
-          <div style={{ fontWeight: 800, fontSize: 18, fontFamily: 'Syne,sans-serif', color: 'var(--success)' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--success)' }}>
             {currency(PAYROLL.reduce((s, r) => s + r.total, 0))}/mo
           </div>
         </div>

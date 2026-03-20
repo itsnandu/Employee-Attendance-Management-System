@@ -367,10 +367,10 @@ export default function EmpLayout({ page, setPage, children }) {
               <div style={{
                 width: 38, height: 38, borderRadius: 10, background: T.primary,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, flexShrink: 0,
-              }}>H</div>
+                fontWeight: 800, fontSize: 16, flexShrink: 0,
+              }}>E</div>
               <div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: ".5px" }}>HRMS</div>
+                <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: ".5px" }}>EAMS</div>
                 <div style={{ fontSize: 10, color: "#64748b", letterSpacing: "1px", textTransform: "uppercase" }}>Employee</div>
               </div>
             </div>
@@ -379,7 +379,7 @@ export default function EmpLayout({ page, setPage, children }) {
             <div style={{
               width: 38, height: 38, borderRadius: 10, background: T.primary,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16,
+              fontWeight: 800, fontSize: 16,
             }}>H</div>
           )}
         </div>
@@ -453,7 +453,7 @@ export default function EmpLayout({ page, setPage, children }) {
           padding: "0 28px", flexShrink: 0, position: "sticky", top: 0, zIndex: 100,
         }}>
           <div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: T.text }}>
+            <div style={{ fontWeight: 800, fontSize: 22, color: T.text }}>
               {NAV.find(n => n.key === page)?.label || "Dashboard"}
             </div>
             <div style={{ fontSize: 12, color: T.muted }}>Thursday, 5 March 2026</div>

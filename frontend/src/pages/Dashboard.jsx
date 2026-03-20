@@ -51,7 +51,6 @@ const Card = ({ icon, label, value, sub, color='var(--primary)' }) => {
         <div style={{
           fontSize: isMobile ? '22px' : '28px',
           fontWeight:800,
-          fontFamily:'Syne,sans-serif',
           lineHeight:1.2,
           color: 'var(--text)',
         }}>{value}</div>
@@ -136,7 +135,6 @@ export default function Dashboard({ setPage }) {
       }}>
         <div>
           <h2 style={{
-            fontFamily:'Syne,sans-serif',
             fontSize: isMobile ? '22px' : '26px',
             fontWeight:800,
             marginBottom: isMobile ? '4px' : '6px',

@@ -8,6 +8,8 @@ import Reports        from '../pages/Reports'
 import Holidays       from '../pages/Holidays'
 import Announcments   from '../pages/Announcments'
 import UserManagement from '../pages/Usermanagement'
+import WFHManagement  from '../pages/WfhManagement'
+
 
 const PAGES = {
   dashboard:      (p) => <Dashboard {...p}/>,
@@ -17,6 +19,7 @@ const PAGES = {
   reports:         () => <Reports/>,
   holidays:        () => <Holidays/>,
   announcements:   () => <Announcments/>,
+  wfh:             () => <WFHManagement/>,
   usermanagement:  () => <UserManagement/>,
 }
 

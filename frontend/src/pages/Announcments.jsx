@@ -37,7 +37,7 @@ function Modal({ open, onClose, title, children, width=520 }) {
         boxShadow:'0 20px 60px rgba(0,0,0,.2)',
       }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:T.text }}>{title}</div>
+          <div style={{ fontWeight:800, fontSize:18, color:T.text }}>{title}</div>
           <button onClick={onClose} style={{ border:'none', background:T.surface2, cursor:'pointer', width:32, height:32, borderRadius:8, fontSize:16, color:T.muted }}>✕</button>
         </div>
         {children}
@@ -190,7 +190,7 @@ export default function AdminAnnouncements() {
         ))}
         <div style={{ position:'relative' }}>
           <div style={{ fontSize:12, color:'rgba(255,255,255,.65)', marginBottom:4, fontWeight:600, letterSpacing:'.5px', textTransform:'uppercase' }}>Admin · Communication</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:24, color:'#fff', marginBottom:6 }}>📢 Announcements</div>
+          <div style={{ fontWeight:800, fontSize:24, color:'#fff', marginBottom:6 }}>📢 Announcements</div>
           <div style={{ fontSize:14, color:'rgba(255,255,255,.8)' }}>Publish company-wide notices and updates for all employees.</div>
         </div>
         <button onClick={openAdd} style={{
@@ -214,7 +214,7 @@ export default function AdminAnnouncements() {
           }}>
             <div style={{ width:44, height:44, borderRadius:12, background:c.iconBg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>{c.icon}</div>
             <div>
-              <div style={{ fontSize:26, fontWeight:800, fontFamily:"'Syne',sans-serif", lineHeight:1 }}>{c.value}</div>
+              <div style={{ fontSize:26, fontWeight:800, lineHeight:1 }}>{c.value}</div>
               <div style={{ fontSize:12, color:T.muted, marginTop:3 }}>{c.label}</div>
             </div>
           </div>
