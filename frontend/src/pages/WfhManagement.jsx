@@ -1,4 +1,5 @@
 // src/pages/WFHManagement.jsx  — Admin side WFH request manager
+// src/pages/WFHManagement.jsx  — Admin side WFH request manager
 import React, { useState, useEffect, useMemo } from 'react'
 import { CheckCircle, XCircle, Clock, Search, RefreshCw, Home, X } from 'lucide-react'
 import { getWFH, approveWFH, rejectWFH } from '../services/wfhService'
@@ -7,10 +8,12 @@ import { getInitials } from '../utils/helpers'
 
 const COLORS = ['#4f46e5','#06b6d4','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6']
 
+if (typeof document !== 'undefined' && !document.getElementById('wfh-spin')) { const s = document.createElement('style'); s.id = 'wfh-spin'; s.textContent = '@keyframes spin { to { transform: rotate(360deg) } }'; document.head.appendChild(s); }
+
 const STATUS_META = {
-  approved: { label: 'Approved', bg: '#d1fae5', color: '#065f46', dot: '#10b981', icon: '✓' },
-  pending:  { label: 'Pending',  bg: '#fef3c7', color: '#92400e', dot: '#f59e0b', icon: '⏳' },
-  rejected: { label: 'Rejected', bg: '#fee2e2', color: '#991b1b', dot: '#ef4444', icon: '✕' },
+  approved: { label: 'Approved', bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
+  pending:  { label: 'Pending',  bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
+  rejected: { label: 'Rejected', bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
 }
 
 function fmt(ds) {
@@ -178,7 +181,7 @@ function DetailModal({ request, onClose, onApprove, onReject }) {
       }}>
         {/* Top banner */}
         <div style={{
-          background: 'linear-gradient(135deg,#0891b2,#0e7490)',
+          background: 'linear-gradient(135deg,#0061f2,#0052cc)',
           padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -381,10 +384,10 @@ export default function WFHManagement() {
 
       {/* Banner */}
       <div style={{
-        background: 'linear-gradient(120deg,#0891b2 0%,#0e7490 100%)',
+        background: 'linear-gradient(135deg,#0061f2 0%,#0052cc 55%,#0284c7 100%)',
         borderRadius: 16, padding: '24px 32px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 4px 24px rgba(8,145,178,.28)', position: 'relative', overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,97,242,.28)', position: 'relative', overflow: 'hidden',
       }}>
         {[[-20,-20,180],[60,-60,120]].map(([r,t,s],i) => (
           <div key={i} style={{ position:'absolute', right:r, top:t, width:s, height:s, borderRadius:'50%', background:'rgba(255,255,255,.07)' }} />
@@ -416,10 +419,10 @@ export default function WFHManagement() {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
         {[
-          { label: 'Total Requests', value: total,    icon: '📋', iconBg: '#ede9fe', iconColor: '#4f46e5' },
-          { label: 'Pending',        value: pending,  icon: '⏳', iconBg: '#fef3c7', iconColor: '#f59e0b', highlight: pending > 0 },
-          { label: 'Approved',       value: approved, icon: '✅', iconBg: '#d1fae5', iconColor: '#10b981' },
-          { label: 'Rejected',       value: rejected, icon: '❌', iconBg: '#fee2e2', iconColor: '#ef4444' },
+          { label: 'Total Requests', value: total,    svgKey: 'clipboard', iconBg: '#dbeafe', iconColor: '#0061f2' },
+          { label: 'Pending',        value: pending,  svgKey: 'clock',     iconBg: '#fef3c7', iconColor: '#f59e0b', highlight: pending > 0 },
+          { label: 'Approved',       value: approved, svgKey: 'check',     iconBg: '#d1fae5', iconColor: '#10b981' },
+          { label: 'Rejected',       value: rejected, svgKey: 'xcircle',   iconBg: '#fee2e2', iconColor: '#ef4444' },
         ].map(c => (
           <div key={c.label} style={{
             background: 'var(--surface)', borderRadius: 14, padding: '16px 20px',
@@ -427,7 +430,12 @@ export default function WFHManagement() {
             boxShadow: c.highlight ? '0 0 0 3px rgba(245,158,11,.12)' : 'var(--shadow)',
             display: 'flex', alignItems: 'center', gap: 14,
           }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{c.icon}</div>
+            <div style={{ width: 50, height: 50, borderRadius: 14, background: c.iconBg, color: c.iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {c.svgKey === 'clipboard' && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>}
+              {c.svgKey === 'clock'     && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+              {c.svgKey === 'check'     && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>}
+              {c.svgKey === 'xcircle'   && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>}
+            </div>
             <div>
               <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>{c.value}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{c.label}</div>
@@ -493,12 +501,12 @@ export default function WFHManagement() {
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
         {loading ? (
           <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0061f2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin 1s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div>
             <div style={{ fontWeight: 600 }}>Loading requests…</div>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🏠</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12, color:'#cbd5e1' }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>No WFH requests found</div>
             <div style={{ fontSize: 13, marginTop: 6 }}>
               {filter !== 'all' || search ? 'Try adjusting your filters.' : 'Employees haven\'t submitted any WFH requests yet.'}
@@ -661,3 +669,4 @@ export default function WFHManagement() {
     </div>
   )
 }
+

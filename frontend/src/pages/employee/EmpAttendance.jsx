@@ -3185,7 +3185,14 @@
 
 
 // src/pages/employee/EmpAttendance.jsx
-import { useState, useMemo, useEffect, useRef } from "react";
+// Simplified: each Mark Attendance tap = one new DB row. No check-in/checkout concept.
+
+
+// src/pages/employee/EmpAttendance.jsx
+// Simplified: each Mark Attendance tap = one new DB row. No check-in/checkout concept.
+// src/pages/employee/EmpAttendance.jsx
+// Simplified: each Mark Attendance tap = one new DB row. No check-in/checkout concept.
+import { useState, useMemo, useEffect } from "react";
 import { T, Card, SectionTitle, StatusBadge } from "../../components/employee/EmpUI";
 import {
   buildMonthAttendanceFromAPI, getWeekDates, getHoliday,
@@ -3198,7 +3205,7 @@ import holidayService from "../../services/holidayService";
 const TODAY_DATE = new Date();
 const TODAY_STR  = dateStr(TODAY_DATE);
 
-// ── Live Clock ────────────────────────────────────────────────
+// ── Live Clock ─────────────────────────────────────────────────
 function useLiveClock() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -3209,36 +3216,13 @@ function useLiveClock() {
 }
 
 function formatTime(date) {
-  return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+  });
 }
 
-function formatTime24(date) {
-  return date.toTimeString().slice(0, 8); // HH:MM:SS for backend
-}
-
-function calcElapsed(checkInTime) {
-  if (!checkInTime) return null;
-  const [timePart, ampm] = checkInTime.split(" ");
-  let [h, m, s = 0] = timePart.split(":").map(Number);
-  if (ampm === "PM" && h !== 12) h += 12;
-  if (ampm === "AM" && h === 12) h = 0;
-  const start = new Date();
-  start.setHours(h, m, s, 0);
-  const diff = Math.max(0, Math.floor((new Date() - start) / 1000));
-  const hh = Math.floor(diff / 3600);
-  const mm = Math.floor((diff % 3600) / 60);
-  const ss = diff % 60;
-  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
-}
-
-function parseElapsedSecs(elapsed) {
-  if (!elapsed) return 0;
-  const [h, m, s] = elapsed.split(":").map(Number);
-  return h * 3600 + m * 60 + s;
-}
-
-function calcTotalHours(cin, cout) {
-  if (!cin || !cout) return "—";
+function calcTotalHours(firstT, lastT) {
+  if (!firstT || !lastT || firstT === lastT) return "—";
   const parse = t => {
     const [time, ampm] = t.split(" ");
     let [h, m, s = 0] = time.split(":").map(Number);
@@ -3246,41 +3230,57 @@ function calcTotalHours(cin, cout) {
     if (ampm === "AM" && h === 12) h = 0;
     return h * 3600 + m * 60 + s;
   };
-  const diff = Math.max(0, parse(cout) - parse(cin));
+  const diff = Math.max(0, parse(lastT) - parse(firstT));
   const hh = Math.floor(diff / 3600);
   const mm = Math.floor((diff % 3600) / 60);
   return `${hh}h ${mm}m`;
 }
 
-// ── Session list display ──────────────────────────────────────
-function SessionList({ sessions }) {
-  if (!sessions || sessions.length === 0) return null;
+function parseElapsedSecs(t) {
+  if (!t) return 0;
+  const [h, m, s] = t.split(":").map(Number);
+  return (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+}
+
+function calcElapsedFromTime(timeStr) {
+  if (!timeStr) return null;
+  const [tp, ampm] = timeStr.split(" ");
+  let [h, m, s = 0] = tp.split(":").map(Number);
+  if (ampm === "PM" && h !== 12) h += 12;
+  if (ampm === "AM" && h === 12) h = 0;
+  const start = new Date(); start.setHours(h, m, s, 0);
+  const diff = Math.max(0, Math.floor((new Date() - start) / 1000));
+  const hh = Math.floor(diff / 3600);
+  const mm = Math.floor((diff % 3600) / 60);
+  const ss = diff % 60;
+  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+}
+
+// ── Tap list for today ──────────────────────────────────────────
+function TapList({ taps }) {
+  if (!taps || taps.length === 0) return null;
   return (
     <div style={{ padding: "0 24px 18px" }}>
       <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 8 }}>
-        Today's Sessions
+        Today's Attendance Taps
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {sessions.map((s, i) => (
+        {taps.map((t, i) => (
           <div key={i} style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "8px 12px", borderRadius: 9,
             background: T.surface2, fontSize: 13,
           }}>
-            <span style={{ fontWeight: 700, color: T.muted, minWidth: 22 }}>#{i + 1}</span>
-            <span style={{ color: T.success, fontWeight: 600 }}>In: {s.in}</span>
-            {s.out && (
-              <>
-                <span style={{ color: T.muted }}>→</span>
-                <span style={{ color: T.danger, fontWeight: 600 }}>Out: {s.out}</span>
-                <span style={{ marginLeft: "auto", color: T.primary, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                  {calcTotalHours(s.in, s.out)}
-                </span>
-              </>
+            <span style={{ fontWeight: 700, color: T.muted, minWidth: 28 }}>#{i + 1}</span>
+            <span style={{ color: T.primary, fontWeight: 600 }}>{t}</span>
+            {i === 0 && (
+              <span style={{ marginLeft: 6, padding: "1px 8px", borderRadius: 99, background: "#d1fae5", color: "#065f46", fontSize: 11, fontWeight: 600 }}>
+                First
+              </span>
             )}
-            {!s.out && (
-              <span style={{ marginLeft: "auto", padding: "2px 10px", borderRadius: 99, background: "#dbeafe", color: "#0061f2", fontWeight: 600, fontSize: 11 }}>
-                Active
+            {i === taps.length - 1 && taps.length > 1 && (
+              <span style={{ marginLeft: 6, padding: "1px 8px", borderRadius: 99, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 600 }}>
+                Last
               </span>
             )}
           </div>
@@ -3290,129 +3290,96 @@ function SessionList({ sessions }) {
   );
 }
 
-// ── Check-In / Check-Out Action Card ─────────────────────────
-function AttendanceActionCard({ sessions, onCheckIn, onCheckOut }) {
-  const now = useLiveClock();
+// ── Action Card ─────────────────────────────────────────────────
+function AttendanceActionCard({ taps, onMark }) {
+  const now      = useLiveClock();
+  const firstTap = taps.length > 0 ? taps[0] : null;
+  const lastTap  = taps.length > 0 ? taps[taps.length - 1] : null;
+  const elapsed  = firstTap ? calcElapsedFromTime(firstTap) : null;
 
-  const lastSession = sessions[sessions.length - 1];
-  const isCurrentlyIn = lastSession && !lastSession.out;
-  const firstCheckIn = sessions.length > 0 ? sessions[0].in : null;
-  const lastCheckOut = sessions.length > 0 && sessions[sessions.length - 1].out
-    ? sessions[sessions.length - 1].out : null;
-
-  const elapsed = isCurrentlyIn ? calcElapsed(lastSession.in) : null;
-
-  const statusLabel = sessions.length === 0
-    ? "Not Checked In"
-    : isCurrentlyIn
-    ? "Currently Working"
-    : "Checked Out";
-  
-  // Both buttons always enabled — Check In enabled when not currently in, Check Out enabled when currently in
-  const canCheckIn  = !isCurrentlyIn;
-  const canCheckOut = isCurrentlyIn;
+  const statusLabel = taps.length === 0 ? "Not Marked" : "Marked Today";
+  const elapsedSecs = elapsed ? parseElapsedSecs(elapsed) : 0;
 
   return (
     <Card style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
-      {/* Header gradient bar */}
+      {/* Header */}
       <div style={{
         background: "linear-gradient(135deg, #0061f2 0%, #0ea5e9 100%)",
         padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div>
-          <div style={{ color: "#c7d2fe", fontSize: 12, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 4 }}>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: 12, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 4 }}>
             Today's Attendance
           </div>
           <div style={{ color: "#fff", fontSize: 22, fontWeight: 800, fontFamily: "'Syne',sans-serif" }}>
             {formatTime(now)}
           </div>
-          <div style={{ color: "#93c5fd", fontSize: 13, marginTop: 2 }}>
+          <div style={{ color: "rgba(255,255,255,.75)", fontSize: 13, marginTop: 2 }}>
             {TODAY_DATE.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </div>
         </div>
-        <div style={{
-          background: "rgba(255,255,255,0.15)", borderRadius: 16,
-          padding: "10px 20px", textAlign: "center",
-        }}>
-          <div style={{ color: "#c7d2fe", fontSize: 11, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase" }}>Status</div>
+        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 16, padding: "10px 20px", textAlign: "center" }}>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: 11, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase" }}>Status</div>
           <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginTop: 4 }}>{statusLabel}</div>
         </div>
       </div>
 
       {/* Body */}
       <div style={{ padding: "20px 24px", display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-
-        {/* Time info — shows FIRST check-in and LAST check-out */}
+        {/* Stats */}
         <div style={{ display: "flex", gap: 16, flex: 1 }}>
           <div style={{ padding: "12px 18px", borderRadius: 12, background: T.surface2, flex: 1, minWidth: 110 }}>
-            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>First Check In</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: firstCheckIn ? T.success : T.muted }}>
-              {firstCheckIn || "—"}
+            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>First Tap</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: firstTap ? T.success : T.muted }}>{firstTap || "—"}</div>
+          </div>
+          <div style={{ padding: "12px 18px", borderRadius: 12, background: T.surface2, flex: 1, minWidth: 110 }}>
+            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>Last Tap</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: lastTap && taps.length > 1 ? T.danger : T.muted }}>
+              {taps.length > 1 ? lastTap : "—"}
             </div>
           </div>
           <div style={{ padding: "12px 18px", borderRadius: 12, background: T.surface2, flex: 1, minWidth: 110 }}>
-            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>Last Check Out</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: lastCheckOut ? T.danger : T.muted }}>
-              {lastCheckOut || "—"}
-            </div>
-          </div>
-          <div style={{ padding: "12px 18px", borderRadius: 12, background: T.surface2, flex: 1, minWidth: 110 }}>
-            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>
-              {isCurrentlyIn ? "Elapsed" : sessions.length > 0 ? "Total Hours" : "Elapsed"}
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: T.primary, fontVariantNumeric: "tabular-nums" }}>
-              {isCurrentlyIn
-                ? elapsed || "—"
-                : firstCheckIn && lastCheckOut
-                ? calcTotalHours(firstCheckIn, lastCheckOut)
-                : "—"}
-            </div>
+            <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: ".4px", textTransform: "uppercase", marginBottom: 6 }}>Total Taps</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: T.primary }}>{taps.length || "—"}</div>
           </div>
         </div>
 
-        {/* Single Mark Attendance button — toggles between check-in and check-out */}
-        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-          <button
-            onClick={isCurrentlyIn ? onCheckOut : onCheckIn}
-            style={{
-              padding: "12px 32px", borderRadius: 12, border: "none",
-              cursor: "pointer",
-              background: isCurrentlyIn
-                ? "linear-gradient(135deg,#ef4444,#dc2626)"
-                : "linear-gradient(135deg,#0061f2,#0ea5e9)",
-              color: "#fff",
-              fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans',sans-serif",
-              transition: "all .25s",
-              boxShadow: isCurrentlyIn
-                ? "0 4px 14px rgba(239,68,68,.35)"
-                : "0 4px 14px rgba(0,97,242,.35)",
-              display: "flex", alignItems: "center", gap: 8,
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-          >
-            {isCurrentlyIn ? "↩" : "✓"}
-            {isCurrentlyIn ? "Mark Attendance" : "Mark Attendance"}
-          </button>
-        </div>
+        {/* Mark Attendance Button */}
+        <button
+          onClick={onMark}
+          style={{
+            padding: "13px 32px", borderRadius: 12, border: "none",
+            cursor: "pointer",
+            background: "linear-gradient(135deg,#0061f2,#0ea5e9)",
+            color: "#fff",
+            fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans',sans-serif",
+            transition: "all .2s",
+            boxShadow: "0 4px 14px rgba(0,97,242,.35)",
+            display: "flex", alignItems: "center", gap: 8,
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+          ✓ Mark Attendance
+        </button>
       </div>
 
-      {/* Session list */}
-      <SessionList sessions={sessions} />
+      {/* Tap list */}
+      <TapList taps={taps} />
 
-      {/* Progress bar — shows while currently checked in */}
-      {isCurrentlyIn && (
+      {/* Progress bar (time since first tap) */}
+      {firstTap && elapsed && (
         <div style={{ padding: "0 24px 18px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, marginBottom: 6 }}>
-            <span>Work progress (8h target)</span>
+            <span>Time since first tap (8h target)</span>
             <span style={{ fontWeight: 600, color: T.primary }}>{elapsed}</span>
           </div>
           <div style={{ height: 6, background: T.surface2, borderRadius: 99, overflow: "hidden" }}>
             <div style={{
               height: "100%", borderRadius: 99,
               background: "linear-gradient(90deg,#0061f2,#0ea5e9)",
-              width: `${Math.min(100, (parseElapsedSecs(elapsed) / (8*3600)) * 100)}%`,
+              width: `${Math.min(100, (elapsedSecs / (8 * 3600)) * 100)}%`,
               transition: "width 1s linear",
             }} />
           </div>
@@ -3422,7 +3389,7 @@ function AttendanceActionCard({ sessions, onCheckIn, onCheckOut }) {
   );
 }
 
-// ── Mini Calendar ─────────────────────────────────────────────
+// ── Mini Calendar ───────────────────────────────────────────────
 function MiniCalendar({ date, onChange, view, holidaysMap = {} }) {
   const [nav, setNav] = useState(new Date(date));
   const year = nav.getFullYear(), month = nav.getMonth();
@@ -3476,12 +3443,9 @@ function MiniCalendar({ date, onChange, view, holidaysMap = {} }) {
     </Card>
   );
 }
-const nb = {
-  border:"none", background:T.surface2, cursor:"pointer",
-  width:26, height:26, borderRadius:7, fontSize:14, color:T.muted,
-};
+const nb = { border:"none", background:T.surface2, cursor:"pointer", width:26, height:26, borderRadius:7, fontSize:14, color:T.muted };
 
-// ── Summary Cards ─────────────────────────────────────────────
+// ── Summary Cards ───────────────────────────────────────────────
 function SummaryCards({ present, absent, late }) {
   return (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
@@ -3502,91 +3466,70 @@ function SummaryCards({ present, absent, late }) {
   );
 }
 
-// ── Daily View ────────────────────────────────────────────────
-function DailyView({ date, sessions, onCheckIn, onCheckOut, monthData, rec }) {
-  const ds  = dateStr(date);
+// ── Daily View ──────────────────────────────────────────────────
+function DailyView({ date, taps, onMark, monthData, rec }) {
+  const ds = dateStr(date);
   const isToday = ds === TODAY_STR;
 
-  const firstCheckIn  = sessions.length > 0 ? sessions[0].in : null;
-  const lastCheckOut  = sessions.length > 0 && sessions[sessions.length-1].out ? sessions[sessions.length-1].out : null;
-  const isCurrentlyIn = sessions.length > 0 && !sessions[sessions.length-1].out;
-
-  if (!rec) {
-    return (
-      <Card style={{ padding:40, textAlign:"center" }}>
-        <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
-        <div style={{ fontWeight:700, fontSize:16 }}>Loading...</div>
-      </Card>
-    );
-  }
-  if (rec.type === "weekend") {
-    return (
-      <Card style={{ padding:40, textAlign:"center" }}>
-        <div style={{ fontSize:40, marginBottom:12 }}>🏖️</div>
-        <div style={{ fontWeight:700, fontSize:16 }}>Weekend</div>
-        <div style={{ color:T.muted, fontSize:13, marginTop:4 }}>No attendance record for this day.</div>
-      </Card>
-    );
-  }
-
+  if (!rec) return (
+    <Card style={{ padding:40, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+      <div style={{ fontWeight:700, fontSize:16 }}>Loading...</div>
+    </Card>
+  );
+  // Saturdays are treated as working days — only Sunday shows "Weekend"
+  if (rec.type === "weekend" && date.getDay() === 0) return (
+    <Card style={{ padding:40, textAlign:"center" }}>
+      <div style={{ fontSize:36, marginBottom:10 }}>😊</div>
+      <div style={{ fontWeight:700, fontSize:16 }}>Sunday</div>
+      <div style={{ color:T.muted, fontSize:13, marginTop:4 }}>Enjoy your day off!</div>
+    </Card>
+  );
+  // Saturday — treat as a normal working day (fall through)
   if (rec.type === "holiday") {
-    const typeColor = rec.holidayType === "public" ? "#0061f2" : rec.holidayType === "restricted" ? "#f59e0b" : "#06b6d4";
-    const typeBg    = rec.holidayType === "public" ? "#dbeafe" : rec.holidayType === "restricted" ? "#fef3c7" : "#cffafe";
+    const typeColor = rec.holidayType === "public" ? "#0061f2" : "#f59e0b";
+    const typeBg    = rec.holidayType === "public" ? "#dbeafe" : "#fef3c7";
     return (
       <Card style={{ padding:40, textAlign:"center" }}>
         <div style={{ fontSize:44, marginBottom:12 }}>🎉</div>
-        <div style={{ fontWeight:800, fontSize:18, fontFamily:"'Syne',sans-serif" }}>{rec.holidayName}</div>
-        <div style={{ marginTop:8, display:"inline-block", padding:"4px 16px", borderRadius:99, background:typeBg, color:typeColor, fontSize:13, fontWeight:600, textTransform:"capitalize" }}>
+        <div style={{ fontWeight:800, fontSize:18 }}>{rec.holidayName}</div>
+        <div style={{ marginTop:8, display:"inline-block", padding:"4px 16px", borderRadius:99, background:typeBg, color:typeColor, fontSize:13, fontWeight:600 }}>
           {rec.holidayType} Holiday
         </div>
         <div style={{ color:T.muted, fontSize:13, marginTop:12 }}>Office is closed. Enjoy your day off!</div>
       </Card>
     );
   }
-
-  if (rec.type === "future") {
-    return (
-      <Card style={{ padding:40, textAlign:"center" }}>
-        <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
-        <div style={{ fontWeight:700, fontSize:16 }}>Future Date</div>
-        <div style={{ color:T.muted, fontSize:13, marginTop:4 }}>Attendance not yet recorded.</div>
-      </Card>
-    );
-  }
+  if (rec.type === "future") return (
+    <Card style={{ padding:40, textAlign:"center" }}>
+      <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+      <div style={{ fontWeight:700, fontSize:16 }}>Future Date</div>
+    </Card>
+  );
 
   const wkdays  = (monthData || []).filter(d=>d.type!=="weekend"&&d.type!=="future"&&d.type!=="holiday");
   const present = wkdays.filter(d=>d.type==="present").length;
   const absent  = wkdays.filter(d=>d.type==="absent").length;
   const late    = wkdays.filter(d=>d.type==="late").length;
 
-  const displayCheckIn  = isToday ? firstCheckIn  : rec.checkIn;
-  const displayCheckOut = isToday ? lastCheckOut  : rec.checkOut;
-  const displayStatus   = isToday
-    ? (sessions.length > 0 ? "present" : "absent")
-    : rec.type;
+  const firstTap = taps.length > 0 ? taps[0] : (rec.checkIn || null);
+  const lastTap  = taps.length > 1 ? taps[taps.length-1] : (rec.checkOut || null);
+  const status   = isToday ? (taps.length > 0 ? "present" : "absent") : rec.type;
 
   return (
     <div>
-      {isToday && (
-        <AttendanceActionCard
-          sessions={sessions}
-          onCheckIn={onCheckIn}
-          onCheckOut={onCheckOut}
-        />
-      )}
-
+      {isToday && <AttendanceActionCard taps={taps} onMark={onMark} />}
       <SummaryCards present={present} absent={absent} late={late}/>
-
       <Card style={{ padding:24 }}>
         <SectionTitle>Attendance Detail — {date.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</SectionTitle>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
           {[
-            { label:"Status",     value:<StatusBadge status={displayStatus}/> },
-            { label:"First Check In",   value: displayCheckIn  || "—" },
-            { label:"Last Check Out",  value: displayCheckOut || "—" },
-            { label:"Total Hours", value: isToday ? (firstCheckIn && lastCheckOut ? calcTotalHours(firstCheckIn, lastCheckOut) : "—") : rec.hours || "—" },
-            { label:"Sessions Today", value: isToday ? `${sessions.length} session${sessions.length !== 1 ? "s" : ""}` : "—" },
-            { label:"Department", value: "Engineering" },
+            { label:"Status",       value: <StatusBadge status={status}/> },
+            { label:"First Tap",    value: firstTap || "—" },
+            { label:"Last Tap",     value: lastTap  || "—" },
+            { label:"Total Taps",   value: isToday ? `${taps.length} tap${taps.length !== 1 ? "s" : ""}` : "—" },
+            { label:"Total Hours",  value: calcTotalHours(firstTap, lastTap) },
+            { label:"Department",   value: "General" },
           ].map(r=>(
             <div key={r.label} style={{ padding:"14px 18px", borderRadius:10, background:T.surface2 }}>
               <div style={{ fontSize:11, color:T.muted, fontWeight:600, letterSpacing:".4px", textTransform:"uppercase", marginBottom:6 }}>{r.label}</div>
@@ -3599,33 +3542,29 @@ function DailyView({ date, sessions, onCheckIn, onCheckOut, monthData, rec }) {
   );
 }
 
-// ── Weekly View ───────────────────────────────────────────────
-function WeeklyView({ date, sessions, attByDate, holidaysMap }) {
-  const firstCheckIn = sessions.length > 0 ? sessions[0].in : null;
-  const lastCheckOut = sessions.length > 0 && sessions[sessions.length-1].out ? sessions[sessions.length-1].out : null;
-  const isCurrentlyIn = sessions.length > 0 && !sessions[sessions.length-1].out;
-  const checkedIn = sessions.length > 0;
-  const checkedOut = !!lastCheckOut;
-
+// ── Weekly View ─────────────────────────────────────────────────
+function WeeklyView({ date, taps, attByDate, holidaysMap }) {
   const weekDates = useMemo(()=>getWeekDates(date),[date]);
+  const firstTap  = taps.length > 0 ? taps[0] : null;
+  const lastTap   = taps.length > 1 ? taps[taps.length-1] : null;
+
   const days = useMemo(()=>weekDates.map(d=>{
     const ds = dateStr(d);
     const dow = d.getDay();
-    if (dow===0||dow===6) return { date:d, type:"weekend" };
+    if (dow===0) return { date:d, type:"weekend" };   // only Sunday is weekend
     const holiday = getHoliday(ds, holidaysMap);
-    if (holiday) return { date:d, type:"holiday", holidayName:holiday.name || holiday.title };
+    if (holiday) return { date:d, type:"holiday", holidayName:holiday.name||holiday.title };
     if (d > TODAY_DATE) return { date:d, type:"future" };
     if (ds === TODAY_STR) {
-      const st = checkedOut ? "present" : checkedIn ? "present" : "absent";
-      return { date:d, type:st, checkIn:firstCheckIn||null, checkOut:lastCheckOut||null,
-        hours: lastCheckOut ? calcTotalHours(firstCheckIn, lastCheckOut) : null };
+      const st = taps.length > 0 ? "present" : "absent";
+      return { date:d, type:st, checkIn:firstTap||null, checkOut:lastTap||null,
+        hours: firstTap && lastTap ? calcTotalHours(firstTap,lastTap) : null };
     }
     const rec = attByDate[ds];
     if (!rec) return { date:d, type:"absent", checkIn:null, checkOut:null, hours:null };
-    const cin = rec.check_in || rec.check_in_time;
-    const cout = rec.check_out || rec.check_out_time;
-    return { date:d, type:(rec.status||"present").toLowerCase().includes("late")?"late":"present", checkIn:cin?String(cin).slice(0,5):null, checkOut:cout?String(cout).slice(0,5):null, hours:cin&&cout?"9.2h":null };
-  }),[weekDates, checkedIn, firstCheckIn, checkedOut, lastCheckOut, attByDate, holidaysMap]);
+    const cin  = rec.mark_attendance || rec.check_in || rec.check_in_time;
+    return { date:d, type:"present", checkIn:cin?String(cin).slice(0,5):null, checkOut:null, hours:null };
+  }),[weekDates, taps, attByDate, holidaysMap]);
 
   const workdays = days.filter(d=>d.type!=="weekend"&&d.type!=="future"&&d.type!=="holiday");
   const present  = workdays.filter(d=>d.type==="present").length;
@@ -3639,14 +3578,14 @@ function WeeklyView({ date, sessions, attByDate, holidaysMap }) {
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ background:T.surface2 }}>
-              {["Day","Date","Check In","Check Out","Hours","Status"].map(h=>(
+              {["Day","Date","First Tap","Last Tap","Hours","Status"].map(h=>(
                 <th key={h} style={{ padding:"12px 16px", textAlign:"left", fontSize:11, fontWeight:700, color:T.muted, letterSpacing:".5px", borderBottom:`1px solid ${T.border}` }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {days.map((d,i)=>(
-              <tr key={i} style={{ borderBottom:`1px solid #f1f5f9`, background:dateStr(d.date)===TODAY_STR?"#f5f3ff":i%2===0?T.surface:T.surface2 }}>
+              <tr key={i} style={{ borderBottom:`1px solid #f1f5f9`, background:dateStr(d.date)===TODAY_STR?"rgba(0,97,242,.04)":i%2===0?T.surface:T.surface2 }}>
                 <td style={{ padding:"12px 16px", fontWeight:600, fontSize:14 }}>{DAY_LABELS[i]}</td>
                 <td style={{ padding:"12px 16px", fontSize:14, color:T.muted }}>{d.date.getDate()} {MONTH_NAMES[d.date.getMonth()].slice(0,3)}</td>
                 <td style={{ padding:"12px 16px", fontSize:14, fontWeight:500 }}>{d.checkIn||"—"}</td>
@@ -3656,7 +3595,7 @@ function WeeklyView({ date, sessions, attByDate, holidaysMap }) {
                   {d.type==="weekend"||d.type==="future"
                     ? <span style={{ fontSize:12, color:T.muted, fontStyle:"italic" }}>{d.type}</span>
                     : d.type==="holiday"
-                    ? <span style={{ fontSize:12, background:"#fef9c3", color:"#854d0e", padding:"3px 10px", borderRadius:99, fontWeight:600 }}>🎉 {d.holidayName}</span>
+                    ? <span style={{ fontSize:12, background:"#dbeafe", color:"#0061f2", padding:"3px 10px", borderRadius:99, fontWeight:600 }}>🎉 {d.holidayName}</span>
                     : <StatusBadge status={d.type}/>
                   }
                 </td>
@@ -3669,14 +3608,11 @@ function WeeklyView({ date, sessions, attByDate, holidaysMap }) {
   );
 }
 
-// ── Monthly View ──────────────────────────────────────────────
-function MonthlyView({ date, sessions, monthData }) {
-  const checkedIn = sessions.length > 0;
-  const checkedOut = sessions.length > 0 && !!sessions[sessions.length-1].out;
+// ── Monthly View ────────────────────────────────────────────────
+function MonthlyView({ date, taps, monthData }) {
   const data = monthData || [];
   const year = date.getFullYear(), month = date.getMonth();
-
-  const firstDay = new Date(year, month, 1);
+  const firstDay    = new Date(year, month, 1);
   const startOffset = (firstDay.getDay() + 6) % 7;
   const cells = [];
   for (let i=0;i<startOffset;i++) cells.push(null);
@@ -3689,8 +3625,8 @@ function MonthlyView({ date, sessions, monthData }) {
   const late     = workdays.filter(d=>d.type==="late").length;
   const rate     = workdays.length ? Math.round(((present+late)/workdays.length)*100) : 0;
 
-  const bgMap    = { present:"#d1fae5", late:"#fef3c7", absent:"#fee2e2", weekend:"#f8fafc", future:"#f8fafc", holiday:"#fef9c3" };
-  const colorMap = { present:"#065f46", late:"#92400e", absent:"#991b1b", weekend:"#cbd5e1", future:"#94a3b8", holiday:"#854d0e" };
+  const bgMap    = { present:"#d1fae5", late:"#fef3c7", absent:"#fee2e2", weekend:"#f8fafc", future:"#f8fafc", holiday:"#dbeafe" };
+  const colorMap = { present:"#065f46", late:"#92400e", absent:"#991b1b", weekend:"#cbd5e1", future:"#94a3b8", holiday:"#0061f2" };
   const labelMap = { present:"P", late:"L", absent:"A", holiday:"H" };
 
   return (
@@ -3699,11 +3635,10 @@ function MonthlyView({ date, sessions, monthData }) {
       <Card style={{ padding:"14px 20px", marginBottom:16, display:"flex", alignItems:"center", gap:16 }}>
         <div style={{ fontSize:13, fontWeight:600, color:T.muted, whiteSpace:"nowrap" }}>Monthly Attendance Rate</div>
         <div style={{ flex:1, background:T.surface2, borderRadius:99, height:9, overflow:"hidden" }}>
-          <div style={{ height:"100%", borderRadius:99, width:`${rate}%`, background:`linear-gradient(90deg,${T.primary},${T.accent})`, transition:"width .5s ease" }}/>
+          <div style={{ height:"100%", borderRadius:99, width:`${rate}%`, background:"linear-gradient(90deg,#0061f2,#0ea5e9)", transition:"width .5s ease" }}/>
         </div>
         <div style={{ fontSize:16, fontWeight:800, color:T.primary, minWidth:48 }}>{rate}%</div>
       </Card>
-
       <Card style={{ padding:20 }}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6, marginBottom:8 }}>
           {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>(
@@ -3726,22 +3661,14 @@ function MonthlyView({ date, sessions, monthData }) {
               }}>
                 <span>{cell.day}</span>
                 {cell.type!=="weekend"&&cell.type!=="future"&&(
-                  <span style={{ fontSize:9, opacity:.75, textTransform:"uppercase" }}>
-                    {labelMap[cell.type]}
-                  </span>
+                  <span style={{ fontSize:9, opacity:.75, textTransform:"uppercase" }}>{labelMap[cell.type]}</span>
                 )}
               </div>
             );
           })}
         </div>
         <div style={{ display:"flex", gap:16, marginTop:14, fontSize:12, color:T.muted, flexWrap:"wrap" }}>
-          {[
-            ["#d1fae5","#065f46","Present"],
-            ["#fef3c7","#92400e","Late"],
-            ["#fee2e2","#991b1b","Absent"],
-            ["#fef9c3","#854d0e","Holiday"],
-            ["#f8fafc","#cbd5e1","Weekend"],
-          ].map(([bg,col,label])=>(
+          {[["#d1fae5","#065f46","Present"],["#fef3c7","#92400e","Late"],["#fee2e2","#991b1b","Absent"],["#dbeafe","#0061f2","Holiday"],["#f8fafc","#94a3b8","Sunday"]].map(([bg,col,label])=>(
             <div key={label} style={{ display:"flex", alignItems:"center", gap:6 }}>
               <div style={{ width:14, height:14, borderRadius:4, background:bg, border:`1px solid ${col}44` }}/>
               {label}
@@ -3753,56 +3680,21 @@ function MonthlyView({ date, sessions, monthData }) {
   );
 }
 
-// ── Main Export ───────────────────────────────────────────────
+// ── Main Export ─────────────────────────────────────────────────
 export default function EmpAttendance() {
   const { employeeId } = useCurrentEmployee();
-  const [view, setView] = useState("daily");
-  const [date, setDate] = useState(new Date(TODAY_DATE));
+  const [view, setView]         = useState("daily");
+  const [date, setDate]         = useState(new Date(TODAY_DATE));
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
-
-  // Sessions = [{in: "HH:MM:SS AM/PM", out: "HH:MM:SS AM/PM" | null}, ...]
-  // - first session's `in` = first check-in (what admin sees as check_in)
-  // - last completed session's `out` = last check-out (what admin sees as check_out)
-  const [sessions, setSessions] = useState(() => {
-    // Restore sessions from sessionStorage so tab switches don't lose live state
-    try {
-      const saved = sessionStorage.getItem("emp_sessions_today");
-      const savedDate = sessionStorage.getItem("emp_sessions_date");
-      if (saved && savedDate === TODAY_STR) return JSON.parse(saved);
-    } catch {}
-    return [];
-  });
-  const [toast, setToast] = useState(null);
-  // hydratedRef: once set, backend data never overwrites local sessions
-  const hydratedRef = useRef(false);
-
-  // Persist sessions to sessionStorage on every change
-  useEffect(() => {
-    try {
-      sessionStorage.setItem("emp_sessions_today", JSON.stringify(sessions));
-      sessionStorage.setItem("emp_sessions_date", TODAY_STR);
-    } catch {}
-  }, [sessions]);
-
-  // Clear stale sessionStorage if it's from a previous day
-  useEffect(() => {
-    try {
-      const savedDate = sessionStorage.getItem("emp_sessions_date");
-      if (savedDate && savedDate !== TODAY_STR) {
-        sessionStorage.removeItem("emp_sessions_today");
-        sessionStorage.removeItem("emp_sessions_date");
-        setSessions([]);
-        hydratedRef.current = false;
-      }
-    } catch {}
-  }, []);
-
+  // taps = list of formatted time strings for today, in order
+  const [taps, setTaps]         = useState([]);
+  const [toast, setToast]       = useState(null);
   const now = useLiveClock();
 
   useEffect(() => {
-    attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
-    holidayService.getHolidays().then((d) => setHolidays(Array.isArray(d) ? d : []));
+    attendanceService.getAttendance().then(d => setAttendance(Array.isArray(d) ? d : []));
+    holidayService.getHolidays().then(d => setHolidays(Array.isArray(d) ? d : []));
   }, []);
 
   const holidaysMap = useMemo(() => {
@@ -3820,78 +3712,44 @@ export default function EmpAttendance() {
   [date, myAttendance, holidaysMap]);
 
   const rec = monthData.find(d => d.day === date.getDate());
+
+  // Build attByDate for weekly view (one record per date — use the first tap)
   const attByDate = useMemo(() => {
     const m = {};
-    myAttendance.forEach(a => { m[(a.date||"").slice(0,10)] = a; });
+    myAttendance.forEach(a => {
+      const ds = (a.date || "").slice(0, 10);
+      if (!m[ds]) m[ds] = a;
+    });
     return m;
   }, [myAttendance]);
 
-  // Hydrate sessions from today's existing attendance record (runs only once)
-  const todayAtt = myAttendance.find(a => (a.date||"").slice(0,10) === TODAY_STR);
+  // Hydrate today's taps from backend on first load (don't overwrite if already set)
   useEffect(() => {
-    // Only hydrate if we have not done so yet AND there are no sessions in storage
-    if (hydratedRef.current) return;
-    if (!todayAtt) return;
-    // Mark as hydrated immediately so subsequent getAttendance refreshes don't overwrite
-    hydratedRef.current = true;
-    // If sessionStorage already restored sessions, don't overwrite them
-    const hasStoredSessions = sessions.length > 0;
-    if (hasStoredSessions) return;
-    const cin  = todayAtt.check_in  || todayAtt.check_in_time  || null;
-    const cout = todayAtt.check_out || todayAtt.check_out_time || null;
-    if (cin) {
-      setSessions([{ in: cin, out: cout || null }]);
+    if (taps.length > 0) return;
+    const todayRecs = myAttendance
+      .filter(a => (a.date || "").slice(0, 10) === TODAY_STR)
+      .sort((a, b) => (a.mark_attendance || "").localeCompare(b.mark_attendance || ""));
+    if (todayRecs.length > 0) {
+      setTaps(todayRecs.map(r => r.mark_attendance || r.check_in || "").filter(Boolean));
     }
-  }, [todayAtt?.id]);
+  }, [myAttendance]);
 
-  const isCurrentlyIn = sessions.length > 0 && !sessions[sessions.length - 1].out;
-
-  async function handleCheckIn() {
-    if (!employeeId || isCurrentlyIn) return;
+  async function handleMark() {
+    if (!employeeId) return;
     const t = formatTime(now);
     try {
-      if (sessions.length === 0) {
-        // First check-in of the day — create the attendance record
-        await attendanceService.checkIn({ employee_id: employeeId, date: TODAY_STR, check_in: t });
-      } else {
-        // Re-check-in (returning from break) — backend check_in stays as first time
-        // Silently attempt; backend may reject a duplicate, that's acceptable
-        try {
-          await attendanceService.checkIn({ employee_id: employeeId, date: TODAY_STR, check_in: sessions[0].in });
-        } catch (_) {}
-      }
-      // Mark hydrated so getAttendance refresh won't overwrite this new open session
-      hydratedRef.current = true;
-      setSessions(prev => [...prev, { in: t, out: null }]);
-      showToast("✓ Checked in at " + t, "success");
-      // Refresh in background — hydration guard prevents stomping
-      attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
-    } catch (err) {
-      showToast(err.message || "Check-in failed", "error");
-    }
-  }
-
-  async function handleCheckOut() {
-    if (!employeeId || !isCurrentlyIn) return;
-    const t = formatTime(now);
-    try {
-      // Always send checkout — backend stores/overwrites check_out so last checkout wins
-      await attendanceService.checkOut({ employee_id: employeeId, date: TODAY_STR, check_out: t });
-      setSessions(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { ...updated[updated.length - 1], out: t };
-        // Immediately persist to sessionStorage so tab-switch sees checkout
-        try {
-          sessionStorage.setItem("emp_sessions_today", JSON.stringify(updated));
-          sessionStorage.setItem("emp_sessions_date", TODAY_STR);
-        } catch {}
-        return updated;
+      await attendanceService.markAttendance({
+        employee_id:     employeeId,
+        date:            TODAY_STR,
+        mark_attendance: t,
+        status:          "Present",
       });
-      hydratedRef.current = true;
-      showToast("↩ Checked out at " + t, "info");
-      attendanceService.getAttendance().then((d) => setAttendance(Array.isArray(d) ? d : []));
+      setTaps(prev => [...prev, t]);
+      showToast("✓ Attendance marked at " + t, "success");
+      // Background refresh
+      attendanceService.getAttendance().then(d => setAttendance(Array.isArray(d) ? d : []));
     } catch (err) {
-      showToast(err.message || "Check-out failed", "error");
+      showToast(err?.response?.data?.detail || err.message || "Failed to mark attendance", "error");
     }
   }
 
@@ -3902,15 +3760,15 @@ export default function EmpAttendance() {
 
   function shift(dir) {
     const d = new Date(date);
-    if (view==="daily")   d.setDate(d.getDate()  + dir);
-    if (view==="weekly")  d.setDate(d.getDate()  + dir*7);
-    if (view==="monthly") d.setMonth(d.getMonth()+ dir);
+    if (view === "daily")   d.setDate(d.getDate() + dir);
+    if (view === "weekly")  d.setDate(d.getDate() + dir * 7);
+    if (view === "monthly") d.setMonth(d.getMonth() + dir);
     setDate(d);
   }
 
   function periodLabel() {
-    if (view==="daily")   return date.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-    if (view==="weekly") {
+    if (view === "daily")  return date.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    if (view === "weekly") {
       const wd = getWeekDates(date);
       return `${wd[0].toLocaleDateString("en-GB",{day:"numeric",month:"short"})} – ${wd[6].toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
     }
@@ -3919,15 +3777,14 @@ export default function EmpAttendance() {
 
   return (
     <div style={{ display:"flex", gap:20, position:"relative" }}>
-
       {/* Toast */}
       {toast && (
         <div style={{
           position:"fixed", top:80, right:28, zIndex:999,
-          padding:"12px 22px", borderRadius:12,
+          padding:"12px 22px", borderRadius:12, fontWeight:600, fontSize:14,
+          boxShadow:"0 4px 16px rgba(0,0,0,.12)",
           background: toast.type==="success" ? "#d1fae5" : toast.type==="error" ? "#fee2e2" : "#dbeafe",
-          color:       toast.type==="success" ? "#065f46"  : toast.type==="error" ? "#991b1b" : "#1e40af",
-          fontWeight:600, fontSize:14, boxShadow:"0 4px 16px rgba(0,0,0,.12)",
+          color:       toast.type==="success" ? "#065f46"  : toast.type==="error" ? "#991b1b"  : "#1e40af",
           animation:"fadeIn .2s ease",
         }}>{toast.msg}</div>
       )}
@@ -3960,9 +3817,9 @@ export default function EmpAttendance() {
           </div>
         </div>
 
-        {view==="daily"   && <DailyView   date={date} sessions={sessions} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} monthData={monthData} rec={rec}/>}
-        {view==="weekly"  && <WeeklyView  date={date} sessions={sessions} attByDate={attByDate} holidaysMap={holidaysMap}/>}
-        {view==="monthly" && <MonthlyView date={date} sessions={sessions} monthData={monthData}/>}
+        {view==="daily"   && <DailyView   date={date} taps={taps} onMark={handleMark} monthData={monthData} rec={rec}/>}
+        {view==="weekly"  && <WeeklyView  date={date} taps={taps} attByDate={attByDate} holidaysMap={holidaysMap}/>}
+        {view==="monthly" && <MonthlyView date={date} taps={taps} monthData={monthData}/>}
       </div>
     </div>
   );
@@ -3973,5 +3830,8 @@ const navBtn = {
   width:34, height:34, borderRadius:9, fontSize:16, color:T.muted,
   display:"flex", alignItems:"center", justifyContent:"center",
 };
+
+
+
 
 

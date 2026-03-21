@@ -31,24 +31,15 @@
 
 import API from "./api";
 
-// ── Mark Attendance (single endpoint) ────────────────────────────────────────
-// First call of the day  → backend sets check_in_time  (check-in)
-// Subsequent calls       → backend updates check_out_time (check-out, last wins)
+// Mark Attendance — every call inserts a new row in the DB
 const markAttendance = async (data) => {
   const response = await API.post("/attendance/mark", data);
   return response.data;
 };
 
-// ── Legacy wrappers (kept for any other callers) ──────────────────────────────
-const checkIn = async (data) => {
-  const response = await API.post("/attendance/checkin", data);
-  return response.data;
-};
-
-const checkOut = async (data) => {
-  const response = await API.post("/attendance/checkout", data);
-  return response.data;
-};
+// Legacy aliases kept so nothing else in the codebase breaks
+const checkIn  = async (data) => markAttendance({ ...data, mark_attendance: data.check_in  || data.check_in_time  });
+const checkOut = async (data) => markAttendance({ ...data, mark_attendance: data.check_out || data.check_out_time });
 
 const getAttendance = async () => {
   const response = await API.get("/attendance");

@@ -8,6 +8,5 @@ class Attendance(Base):
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey("employees.id"))
     date = Column(Date)
-    check_in_time = Column(Time)
-    check_out_time = Column(Time)
+    mark_attendance = Column(Time, nullable=False)   
     status = Column(String(50))

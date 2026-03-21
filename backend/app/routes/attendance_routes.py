@@ -102,15 +102,12 @@
 #     return {"present": present, "absent": absent, "late": late, "total": total}
 
 """
-Attendance routes — Mark Attendance logic:
-  - First mark attendance of the day  → creates a record, sets check_in_time (never overwritten)
-  - Subsequent mark attendances       → frontend alternates check-in / check-out:
-      • POST /checkin  : only writes check_in_time if the record has NO check_in_time yet
-                         (i.e. first call) OR creates a fresh record for a new session
-      • POST /checkout : always updates check_out_time so admin sees LAST checkout
-  Admin sees:
-      check_in_time  = FIRST mark attendance (check-in) of the day
-      check_out_time = LAST  mark attendance (check-out) of the day
+Attendance routes — simple Mark Attendance concept:
+  Every button tap → one new row inserted with the current timestamp.
+  No check-in / check-out logic. No session pairing.
+  Admin sees all taps for a given employee+date ordered by time.
+  First tap of the day = check-in time shown on admin panel.
+  Last tap of the day  = check-out time shown on admin panel.
 """
 
 from datetime import date, time
@@ -138,7 +135,6 @@ def _parse_time(val):
         return val
     import re
     s = str(val).strip().upper()
-    # Handle "11:55:41 AM" / "11:55:41 PM"
     m = re.search(r"(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?", s)
     if m:
         h  = int(m.group(1))
@@ -158,105 +154,88 @@ def _parse_time(val):
 
 def _att_to_dict(a):
     return {
-        "id":          a.id,
-        "employee_id": a.employee_id,
-        "date":        str(a.date) if a.date else None,
-        "check_in":    str(a.check_in_time)  if a.check_in_time  else None,
-        "check_out":   str(a.check_out_time) if a.check_out_time else None,
-        # also expose with _time suffix for frontend compatibility
-        "check_in_time":  str(a.check_in_time)  if a.check_in_time  else None,
-        "check_out_time": str(a.check_out_time) if a.check_out_time else None,
-        "status":      a.status,
+        "id":              a.id,
+        "employee_id":     a.employee_id,
+        "date":            str(a.date) if a.date else None,
+        "mark_attendance": str(a.mark_attendance) if a.mark_attendance else None,
+        "status":          a.status,
     }
 
 
-@router.post("/checkin")
-def checkin(data: dict, db: Session = Depends(get_db)):
+@router.post("/mark")
+def mark_attendance(data: dict, db: Session = Depends(get_db)):
     """
-    Mark Attendance — Check-In side.
-    Rule: The FIRST call of the day creates the record and locks check_in_time.
-          Subsequent calls (re-check-ins after breaks) do NOT overwrite check_in_time
-          so admin always sees the first arrival time.
+    Single endpoint for Mark Attendance button.
+    Every tap creates a new row — no pairing, no check-in/out concept.
     """
     emp_id   = data["employee_id"]
     att_date = data.get("date") or str(date.today())
-    t        = _parse_time(data.get("check_in") or data.get("check_in_time"))
+    t        = _parse_time(data.get("mark_attendance") or data.get("time"))
 
-    # Look for existing record for this employee+date
-    record = (
-        db.query(Attendance)
-        .filter(Attendance.employee_id == emp_id, Attendance.date == att_date)
-        .order_by(Attendance.id.desc())
-        .first()
+    if t is None:
+        from datetime import datetime
+        t = datetime.now().time().replace(microsecond=0)
+
+    record = Attendance(
+        employee_id     = emp_id,
+        date            = att_date,
+        mark_attendance = t,
+        status          = data.get("status") or "Present",
     )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {"message": "Attendance marked", "id": record.id, "time": str(t)}
 
-    if record is None:
-        # First check-in of the day — create record
-        record = Attendance(
-            employee_id   = emp_id,
-            date          = att_date,
-            check_in_time = t,
-            status        = data.get("status") or "Present",
-        )
-        db.add(record)
-        db.commit()
-        db.refresh(record)
-        return {"message": "Checked in (first of day)", "id": record.id}
-    else:
-        # Record already exists — do NOT overwrite check_in_time (preserve first check-in)
-        # Just update status to Present if it was something else
-        if record.status not in ("Present", "Late"):
-            record.status = "Present"
-            db.commit()
-        return {"message": "Already checked in today; first check-in time preserved", "id": record.id}
+
+# Keep /checkin and /checkout as aliases so existing frontend calls still work
+@router.post("/checkin")
+def checkin(data: dict, db: Session = Depends(get_db)):
+    """Alias → mark attendance (first tap of day)."""
+    data["mark_attendance"] = data.get("check_in") or data.get("check_in_time")
+    return mark_attendance(data, db)
 
 
 @router.post("/checkout")
 def checkout(data: dict, db: Session = Depends(get_db)):
-    """
-    Mark Attendance — Check-Out side.
-    Rule: Always overwrite check_out_time so admin sees the LAST checkout of the day.
-    """
-    emp_id   = data["employee_id"]
-    att_date = data.get("date") or str(date.today())
-    t        = _parse_time(data.get("check_out") or data.get("check_out_time"))
-
-    record = (
-        db.query(Attendance)
-        .filter(Attendance.employee_id == emp_id, Attendance.date == att_date)
-        .order_by(Attendance.id.desc())
-        .first()
-    )
-
-    if not record:
-        return {"error": "No check-in record found for today. Please check in first."}
-
-    # Always overwrite — last checkout wins
-    record.check_out_time = t
-    db.commit()
-    return {"message": "Checked out (last checkout time updated)", "id": record.id}
+    """Alias → mark attendance (subsequent tap)."""
+    data["mark_attendance"] = data.get("check_out") or data.get("check_out_time")
+    return mark_attendance(data, db)
 
 
 @router.get("/")
 def get_attendance(db: Session = Depends(get_db)):
-    records = db.query(Attendance).all()
+    """
+    Returns all records. For each employee+date the frontend can derive:
+      first tap = check-in time  (min mark_attendance)
+      last  tap = check-out time (max mark_attendance)
+    """
+    records = db.query(Attendance).order_by(Attendance.date, Attendance.mark_attendance).all()
     return [_att_to_dict(a) for a in records]
 
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
-    """Dashboard stats for today."""
-    today   = str(date.today())
-    records = db.query(Attendance).filter(Attendance.date == today).all()
-    present = len(records)
+    """Dashboard stats for today: unique employees who tapped today = present."""
+    today = str(date.today())
+
+    # Distinct employees who have at least one tap today
+    from sqlalchemy import func, distinct
+    rows = db.query(Attendance).filter(Attendance.date == today).all()
+
+    present_emp_ids = set(r.employee_id for r in rows)
+    present = len(present_emp_ids)
 
     from app.models.employee_model import Employee
     total  = db.query(Employee).count()
     absent = max(0, total - present)
 
     late_threshold = time(9, 30, 0)
-    late = sum(
-        1 for r in records
-        if r.check_in_time and r.check_in_time > late_threshold
-    )
+    # An employee is late if their FIRST tap of the day is after 9:30
+    first_taps = {}
+    for r in rows:
+        if r.employee_id not in first_taps or r.mark_attendance < first_taps[r.employee_id]:
+            first_taps[r.employee_id] = r.mark_attendance
+
+    late = sum(1 for t_val in first_taps.values() if t_val and t_val > late_threshold)
     return {"present": present, "absent": absent, "late": late, "total": total}

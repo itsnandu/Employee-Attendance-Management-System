@@ -594,7 +594,7 @@ function EmpSidebar({ page, setPage, collapsed, setCollapsed, me, logout }) {
               color: "#fff", fontSize: 18, lineHeight: 1.15,
               letterSpacing: "-.3px", whiteSpace: "nowrap",
             }}>
-              HRM<span style={{ color: "#a5d8ff" }}>S</span>
+              EA<span style={{ color: "#a5d8ff" }}>MS</span>
             </div>
             <div style={{
               fontSize: 9.5, color: S.textSubtle,

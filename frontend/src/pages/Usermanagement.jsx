@@ -11,7 +11,7 @@ const DEPTS = ["Management","Engineering","Design","HR","Finance","Sales"];
 const STATUSES = ["active","inactive","suspended"];
 
 const ROLE_META = {
-  admin:    { label:"Admin",    color:"#4f46e5", bg:"#ede9fe", icon:<Shield size={11}/> },
+  admin:    { label:"Admin",    color:"#0061f2", bg:"#dbeafe", icon:<Shield size={11}/> },
   manager:  { label:"Manager",  color:"#f59e0b", bg:"#fef3c7", icon:<ShieldCheck size={11}/> },
   hr:       { label:"HR",       color:"#8b5cf6", bg:"#f3e8ff", icon:<ShieldCheck size={11}/> },
   employee: { label:"Employee", color:"#06b6d4", bg:"#cffafe", icon:<Users size={11}/> },
@@ -87,7 +87,7 @@ function ActionMenu({ user, onEdit, onDelete, onToggleStatus, onResetPassword })
     <div ref={ref} style={{ position:"relative" }}>
       <button onClick={() => setOpen(o => !o)} style={{
         width:32, height:32, borderRadius:8, border:"1px solid #e2e8f0",
-        background: open ? "#f5f3ff" : "#fff", cursor:"pointer",
+        background: open ? "#f0f7ff" : "#fff", cursor:"pointer",
         display:"flex", alignItems:"center", justifyContent:"center", color:"#64748b",
       }}>
         <MoreVertical size={15}/>
@@ -142,7 +142,7 @@ function UserModal({ user, onClose, onSave, departments }) {
   function handleSave() {
     if (!validate()) return;
     const initials = form.name.trim().split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
-    onSave({ ...form, initials, color: user?.color || ROLE_META[form.role]?.color || "#4f46e5" });
+    onSave({ ...form, initials, color: user?.color || ROLE_META[form.role]?.color || "#0061f2" });
   }
 
   const Field = ({ label, children, error }) => (
@@ -186,10 +186,10 @@ function UserModal({ user, onClose, onSave, departments }) {
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{
               width:40, height:40, borderRadius:12,
-              background: isEdit ? "#ede9fe" : "#d1fae5",
+              background: isEdit ? "#dbeafe" : "#d1fae5",
               display:"flex", alignItems:"center", justifyContent:"center",
             }}>
-              {isEdit ? <Edit2 size={18} color="#4f46e5"/> : <Plus size={18} color="#10b981"/>}
+              {isEdit ? <Edit2 size={18} color="#0061f2"/> : <Plus size={18} color="#10b981"/>}
             </div>
             <div>
               <div style={{ fontWeight:800, fontSize:17, color:"#0f172a" }}>
@@ -214,7 +214,7 @@ function UserModal({ user, onClose, onSave, departments }) {
               <div style={{ position:"relative" }}>
                 <input value={form.name} onChange={e => set("name", e.target.value)}
                   placeholder="John Doe" style={{ ...inputStyle(!!errors.name), paddingLeft:36 }}
-                  onFocus={e => e.target.style.borderColor="#4f46e5"}
+                  onFocus={e => e.target.style.borderColor="#0061f2"}
                   onBlur={e  => e.target.style.borderColor=errors.name?"#ef4444":"#e2e8f0"}
                 />
                 <Users size={14} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#94a3b8" }}/>
@@ -224,7 +224,7 @@ function UserModal({ user, onClose, onSave, departments }) {
               <div style={{ position:"relative" }}>
                 <input value={form.phone} onChange={e => set("phone", e.target.value)}
                   placeholder="+91 98765 00000" style={{ ...inputStyle(false), paddingLeft:36 }}
-                  onFocus={e => e.target.style.borderColor="#4f46e5"}
+                  onFocus={e => e.target.style.borderColor="#0061f2"}
                   onBlur={e  => e.target.style.borderColor="#e2e8f0"}
                 />
                 <Phone size={14} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#94a3b8" }}/>
@@ -236,7 +236,7 @@ function UserModal({ user, onClose, onSave, departments }) {
             <div style={{ position:"relative" }}>
               <input value={form.email} onChange={e => set("email", e.target.value)}
                 placeholder="user@hrms.com" style={{ ...inputStyle(!!errors.email), paddingLeft:36 }}
-                onFocus={e => e.target.style.borderColor="#4f46e5"}
+                onFocus={e => e.target.style.borderColor="#0061f2"}
                 onBlur={e  => e.target.style.borderColor=errors.email?"#ef4444":"#e2e8f0"}
               />
               <Mail size={14} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#94a3b8" }}/>
@@ -247,7 +247,7 @@ function UserModal({ user, onClose, onSave, departments }) {
             <Field label="Role">
               <div style={{ position:"relative" }}>
                 <select value={form.role} onChange={e => set("role", e.target.value)} style={selectStyle}
-                  onFocus={e => e.target.style.borderColor="#4f46e5"}
+                  onFocus={e => e.target.style.borderColor="#0061f2"}
                   onBlur={e  => e.target.style.borderColor="#e2e8f0"}
                 >
                   {ROLES.map(r => <option key={r} value={r}>{ROLE_META[r]?.label || r}</option>)}
@@ -258,7 +258,7 @@ function UserModal({ user, onClose, onSave, departments }) {
             <Field label="Department">
               <div style={{ position:"relative" }}>
                 <select value={form.dept} onChange={e => set("dept", e.target.value)} style={selectStyle}
-                  onFocus={e => e.target.style.borderColor="#4f46e5"}
+                  onFocus={e => e.target.style.borderColor="#0061f2"}
                   onBlur={e  => e.target.style.borderColor="#e2e8f0"}
                 >
                   {(departments?.length ? departments : DEPTS).map(d => <option key={d} value={d}>{d}</option>)}
@@ -290,7 +290,7 @@ function UserModal({ user, onClose, onSave, departments }) {
                 <input type={showPass?"text":"password"} value={form.password}
                   onChange={e => set("password", e.target.value)}
                   placeholder="Set a password" style={{ ...inputStyle(!!errors.password), paddingLeft:36, paddingRight:40 }}
-                  onFocus={e => e.target.style.borderColor="#4f46e5"}
+                  onFocus={e => e.target.style.borderColor="#0061f2"}
                   onBlur={e  => e.target.style.borderColor=errors.password?"#ef4444":"#e2e8f0"}
                 />
                 <Lock size={14} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:"#94a3b8" }}/>
@@ -311,7 +311,7 @@ function UserModal({ user, onClose, onSave, departments }) {
           }}>Cancel</button>
           <button onClick={handleSave} style={{
             padding:"9px 24px", borderRadius:9, border:"none",
-            background:"linear-gradient(135deg,#4f46e5,#3730a3)",
+            background:"linear-gradient(135deg,#0061f2,#0052cc)",
             color:"#fff", cursor:"pointer", fontSize:13, fontWeight:700,
             fontFamily:"'DM Sans',sans-serif",
             boxShadow:"0 4px 14px rgba(79,70,229,.35)",
@@ -401,7 +401,7 @@ function DeleteModal({ user, onClose, onConfirm }) {
 // ── Toast Notification ────────────────────────────────────────
 function Toast({ message, type, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
-  const colors = { success:{ bg:"#d1fae5", color:"#065f46", border:"#a7f3d0" }, error:{ bg:"#fee2e2", color:"#991b1b", border:"#fca5a5" }, info:{ bg:"#ede9fe", color:"#4338ca", border:"#c4b5fd" } };
+  const colors = { success:{ bg:"#d1fae5", color:"#065f46", border:"#a7f3d0" }, error:{ bg:"#fee2e2", color:"#991b1b", border:"#fca5a5" }, info:{ bg:"#dbeafe", color:"#1e40af", border:"#c4b5fd" } };
   const c = colors[type] || colors.info;
   return (
     <div style={{
@@ -437,7 +437,7 @@ function toUserFormat(emp) {
     dept: emp.dept || emp.department || "",
     status: (emp.status || "active").toLowerCase(),
     initials,
-    color: ROLE_META[role]?.color || "#4f46e5",
+    color: ROLE_META[role]?.color || "#0061f2",
     joined: emp.joined || emp.joining_date || new Date().toISOString().slice(0, 10),
     lastLogin: "—",
   };
@@ -532,7 +532,7 @@ export default function UserManagement() {
         <button onClick={() => setModal({ type:"add" })} style={{
           display:"flex", alignItems:"center", gap:8,
           padding:"10px 20px", borderRadius:11, border:"none",
-          background:"linear-gradient(135deg,#4f46e5,#3730a3)",
+          background:"linear-gradient(135deg,#0061f2,#0052cc)",
           color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700,
           fontFamily:"'DM Sans',sans-serif",
           boxShadow:"0 4px 14px rgba(79,70,229,.3)",
@@ -544,10 +544,10 @@ export default function UserManagement() {
       {/* ── Stat Cards ── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
         {[
-          { label:"Total Users",    value:users.length,    icon:"👥", iconBg:"#ede9fe", iconColor:"#4f46e5" },
-          { label:"Active Users",   value:totalActive,     icon:"✅", iconBg:"#d1fae5", iconColor:"#10b981" },
-          { label:"Admin Accounts", value:totalAdmins,     icon:"🛡️", iconBg:"#fef3c7", iconColor:"#f59e0b" },
-          { label:"Suspended",      value:totalSuspended,  icon:"🚫", iconBg:"#fee2e2", iconColor:"#ef4444" },
+          { label:"Total Users",    value:users.length,    svgKey:"users",   iconBg:"#dbeafe", iconColor:"#0061f2" },
+          { label:"Active Users",   value:totalActive,     svgKey:"check",   iconBg:"#d1fae5", iconColor:"#10b981" },
+          { label:"Admin Accounts", value:totalAdmins,     svgKey:"shield",  iconBg:"#fef3c7", iconColor:"#f59e0b" },
+          { label:"Suspended",      value:totalSuspended,  svgKey:"ban",     iconBg:"#fee2e2", iconColor:"#ef4444" },
         ].map(c => (
           <div key={c.label} style={{
             background:"#fff", borderRadius:16, padding:"18px 20px",
@@ -555,10 +555,14 @@ export default function UserManagement() {
             display:"flex", alignItems:"center", gap:14,
           }}>
             <div style={{
-              width:48, height:48, borderRadius:14, flexShrink:0,
-              background:c.iconBg, display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:20,
-            }}>{c.icon}</div>
+              width:50, height:50, borderRadius:14, flexShrink:0,
+              background:c.iconBg, color:c.iconColor, display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              {c.svgKey==="users"  && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+              {c.svgKey==="check"  && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>}
+              {c.svgKey==="shield" && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>}
+              {c.svgKey==="ban"    && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>}
+            </div>
             <div>
               <div style={{ fontSize:28, fontWeight:800, lineHeight:1, color:c.iconColor }}>{c.value}</div>
               <div style={{ fontSize:12, color:"#94a3b8", marginTop:3 }}>{c.label}</div>
@@ -586,7 +590,7 @@ export default function UserManagement() {
               fontFamily:"'DM Sans',sans-serif", background:"#f8fafc",
               transition:"border-color .2s",
             }}
-            onFocus={e => { e.target.style.borderColor="#4f46e5"; e.target.style.background="#fff"; }}
+            onFocus={e => { e.target.style.borderColor="#0061f2"; e.target.style.background="#fff"; }}
             onBlur={e  => { e.target.style.borderColor="#e2e8f0"; e.target.style.background="#f8fafc"; }}
           />
           {search && (
@@ -606,9 +610,9 @@ export default function UserManagement() {
                 padding:"5px 12px", borderRadius:99, border:"1.5px solid",
                 cursor:"pointer", fontSize:12, fontWeight:600, textTransform:"capitalize",
                 fontFamily:"'DM Sans',sans-serif", transition:"all .15s",
-                background: roleFilter===r ? "#4f46e5" : "#fff",
+                background: roleFilter===r ? "#0061f2" : "#fff",
                 color:      roleFilter===r ? "#fff" : "#64748b",
-                borderColor:roleFilter===r ? "#4f46e5" : "#e2e8f0",
+                borderColor:roleFilter===r ? "#0061f2" : "#e2e8f0",
               }}>{r === "all" ? "All" : ROLE_META[r]?.label || r}</button>
             ))}
           </div>
@@ -655,7 +659,7 @@ export default function UserManagement() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ padding:"48px 16px", textAlign:"center", color:"#94a3b8" }}>
-                  <div style={{ fontSize:32, marginBottom:8 }}>🔍</div>
+                  <div style={{ display:"flex",justifyContent:"center",marginBottom:8,color:"#cbd5e1" }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
                   <div style={{ fontSize:14, fontWeight:600 }}>No users found</div>
                   <div style={{ fontSize:12, marginTop:4 }}>Try adjusting your search or filters</div>
                 </td>
@@ -664,7 +668,7 @@ export default function UserManagement() {
               filtered.map((u, i) => (
                 <tr key={u.id}
                   style={{ borderBottom:"1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafbfc", transition:"background .15s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f5f3ff"}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f0f7ff"}
                   onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#fafbfc"}
                 >
                   {/* User */}
